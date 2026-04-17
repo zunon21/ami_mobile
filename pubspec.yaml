@@ -1,0 +1,46 @@
+name: ami_mobile
+description: "A new Flutter project."
+publish_to: 'none'
+
+version: 1.0.0+1
+
+environment:
+  sdk: ^3.11.4
+
+dependencies:
+  flutter:
+    sdk: flutter
+  cupertino_icons: ^1.0.8
+  flutter_native_splash: ^2.4.7
+  http: ^1.6.0
+  shared_preferences: ^2.5.5
+  google_fonts: ^6.2.1
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^6.0.0
+
+flutter:
+  uses-material-design: true
+
+  assets:
+    - assets/images/logo.png
+    - assets/images/splash_background.png
+    - assets/images/login_background.png
+    - assets/images/onboarding1.jpg
+    - assets/images/onboarding2.jpg
+    - assets/images/onboarding3.jpg
+    - assets/images/champs/lobi.png
+    - assets/images/champs/koulango.png
+    - assets/images/champs/lorhon.png
+    - assets/images/champs/koyaka.png
+    - assets/images/Zones/
+    - assets/images/Départements/
+
+flutter_native_splash:
+  color: "#2C1A0C"
+  image: assets/images/logo.png
+  android: true
+  ios: true
+  web: false
