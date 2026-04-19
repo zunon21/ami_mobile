@@ -20,3 +20,4 @@ jobs:
         with:
           name: app-release
           path: build/app/outputs/flutter-apk/app-release.apk
+# workflow mis à jour
