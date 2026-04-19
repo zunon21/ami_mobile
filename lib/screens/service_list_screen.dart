@@ -136,6 +136,7 @@ class _ServiceListScreenState extends State<ServiceListScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: Colors.white, // ← AJOUT : fond blanc
       appBar: AppBar(
         elevation: 2,
         backgroundColor: const Color(0xFFD4A017),

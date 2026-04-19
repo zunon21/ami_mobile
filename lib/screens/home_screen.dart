@@ -677,7 +677,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   _buildCommitmentCard(),
                   const SizedBox(height: 24),
 
-                  // Grille des services (modifiée : titre, icônes, disposition 2 lignes de 4)
+                  // Grille des services (corrigée : 3 lignes, 3 colonnes, espacements ajustés)
                   Card(
                     elevation: 2,
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
@@ -686,23 +686,24 @@ class _HomeScreenState extends State<HomeScreen> {
                       child: Column(
                         children: [
                           const Text('Nos besoins', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Color(0xFF5D3A1A))),
-                          const SizedBox(height: 12),
+                          const SizedBox(height: 16),
                           GridView.count(
                             shrinkWrap: true,
                             physics: const NeverScrollableScrollPhysics(),
-                            crossAxisCount: 4, // 4 colonnes pour 2 lignes de 4
-                            childAspectRatio: 1.0,
+                            crossAxisCount: 3,               // 3 colonnes pour 3 lignes
+                            childAspectRatio: 1.2,          // plus de hauteur pour éviter le chevauchement
                             crossAxisSpacing: 12,
-                            mainAxisSpacing: 12,
+                            mainAxisSpacing: 24,             // espace vertical suffisant
                             children: [
-                              // Première ligne : Missionnaire, Champs, Projets, Activités
+                              // Ligne 1 (3 éléments)
                               _buildServiceCircle('Missionnaire', Icons.people, const Color(0xFFFFCDD2)),
                               _buildServiceCircle('Champs', Icons.church, const Color(0xFFC8E6C9)),
                               _buildServiceCircle('Projets', Icons.work, const Color(0xFFBBDEFB)),
+                              // Ligne 2 (3 éléments)
                               _buildServiceCircle('Activités', Icons.event, const Color(0xFFFFF9C4)),
-                              // Deuxième ligne : Zones, Départements, IIFM, Social
                               _buildServiceCircle('Zones', Icons.location_on, const Color(0xFFE1BEE7)),
                               _buildServiceCircle('Départements', Icons.apartment, const Color(0xFFB2EBF2)),
+                              // Ligne 3 (2 éléments restants, centrés automatiquement)
                               _buildServiceCircle('IIFM', Icons.school, const Color(0xFFFFCDD2)),
                               _buildServiceCircle('Social', Icons.volunteer_activism, const Color(0xFFC8E6C9)),
                             ],
@@ -790,6 +791,9 @@ class _HomeScreenState extends State<HomeScreen> {
           Text(
             title,
             style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w500, color: Color(0xFF5D3A1A)),
+            textAlign: TextAlign.center,
+            softWrap: false,          // empêche le retour à la ligne, force sur une ligne
+            overflow: TextOverflow.visible,
           ),
         ],
       ),
