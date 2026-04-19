@@ -14,7 +14,7 @@ class CommitmentService {
       if (response.statusCode == 200) {
         return jsonDecode(response.body);
       } else if (response.statusCode == 404) {
-        return null; // aucun engagement
+        return null;
       }
       return null;
     } catch (e) {
@@ -22,7 +22,12 @@ class CommitmentService {
     }
   }
 
-  static Future<bool> saveCommitment({required double amount, required int dayOfMonth, String? reason}) async {
+  static Future<bool> saveCommitment({
+    required double amount,
+    required int dayOfMonth,
+    required String periodicity,
+    String? reason,
+  }) async {
     final token = await AuthService.getToken();
     if (token == null) return false;
     try {
@@ -32,6 +37,7 @@ class CommitmentService {
         body: jsonEncode({
           'amount': amount,
           'day_of_month': dayOfMonth,
+          'periodicity': periodicity,
           'reason': reason,
         }),
       );
