@@ -27,9 +27,13 @@ class _ServiceListScreenState extends State<ServiceListScreen> {
 
   final List<String> _periodicities = ['Mensuel', 'Bimensuel', 'Trimestriel', 'Semestriel', 'Annuel', 'Ponctuel'];
 
-  // Fonction utilitaire : envoie la périodicité en minuscules (plus de conversion bimestriel)
+  // Fonction utilitaire : convertit la périodicité affichée en valeur backend
+  // CORRECTION : "Bimensuel" -> "bimestriel" (car backend n'accepte pas "bimensuel")
   String _mapPeriodicityToBackend(String periodicity) {
-    return periodicity.toLowerCase();
+    switch (periodicity.toLowerCase()) {
+      case 'bimensuel': return 'bimestriel';
+      default: return periodicity.toLowerCase();
+    }
   }
 
   @override

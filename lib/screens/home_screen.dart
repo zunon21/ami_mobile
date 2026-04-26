@@ -28,9 +28,13 @@ class _HomeScreenState extends State<HomeScreen> {
 
   final List<String> _periodicities = ['Mensuel', 'Bimensuel', 'Trimestriel', 'Semestriel', 'Annuel'];
 
-  // Fonction utilitaire : envoie la périodicité en minuscules (plus de conversion bimestriel)
+  // Fonction utilitaire : convertit la périodicité affichée en valeur backend
+  // CORRECTION : "Bimensuel" -> "bimestriel" (car backend n'accepte pas "bimensuel")
   String _mapPeriodicityToBackend(String periodicity) {
-    return periodicity.toLowerCase();
+    switch (periodicity.toLowerCase()) {
+      case 'bimensuel': return 'bimestriel';
+      default: return periodicity.toLowerCase();
+    }
   }
 
   @override
@@ -542,6 +546,8 @@ class _HomeScreenState extends State<HomeScreen> {
     String selectedPeriodicity;
     if (storedPeriodicity.toLowerCase() == 'ponctuel') {
       selectedPeriodicity = 'Ponctuel';
+    } else if (storedPeriodicity.toLowerCase() == 'bimestriel') {
+      selectedPeriodicity = 'Bimensuel'; // pour affichage cohérent
     } else {
       selectedPeriodicity = storedPeriodicity.isNotEmpty
           ? storedPeriodicity[0].toUpperCase() + storedPeriodicity.substring(1).toLowerCase()
