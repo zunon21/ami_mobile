@@ -24,9 +24,14 @@ class _HomeScreenState extends State<HomeScreen> {
 
   final TextEditingController _amountController = TextEditingController();
   final TextEditingController _dayController = TextEditingController();
-  String _selectedPeriodicity = 'mensuel';
+  String _selectedPeriodicity = 'Mensuel';
 
-  final List<String> _periodicities = ['mensuel', 'bimestriel', 'trimestriel', 'semestriel', 'annuel'];
+  final List<String> _periodicities = ['Mensuel', 'Bimensuel', 'Trimestriel', 'Semestriel', 'Annuel'];
+
+  // Fonction utilitaire : envoie la périodicité en minuscules (plus de conversion bimestriel)
+  String _mapPeriodicityToBackend(String periodicity) {
+    return periodicity.toLowerCase();
+  }
 
   @override
   void initState() {
@@ -100,11 +105,11 @@ class _HomeScreenState extends State<HomeScreen> {
     if (isEditing && _commitment != null) {
       _amountController.text = _commitment!['amount'].toString();
       _dayController.text = _commitment!['day_of_month'].toString();
-      _selectedPeriodicity = _commitment!['periodicity'] ?? 'mensuel';
+      _selectedPeriodicity = _commitment!['periodicity'] ?? 'Mensuel';
     } else {
       _amountController.clear();
       _dayController.clear();
-      _selectedPeriodicity = 'mensuel';
+      _selectedPeriodicity = 'Mensuel';
     }
 
     showDialog(
@@ -324,13 +329,13 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  // Formulaire d'engagement pour un missionnaire avec protection IDENTIQUE à ServiceListScreen
+  // Formulaire d'engagement pour un missionnaire avec gestion du "Ponctuel"
   void _showMissionnaireModal() {
     final TextEditingController amountController = TextEditingController();
     final TextEditingController dayController = TextEditingController();
     final TextEditingController missionaryNameController = TextEditingController();
-    String selectedPeriodicity = 'mensuel';
-    final List<String> periodicities = ['mensuel', 'bimestriel', 'trimestriel', 'semestriel', 'annuel'];
+    String selectedPeriodicity = 'Mensuel';
+    final List<String> periodicities = ['Mensuel', 'Bimensuel', 'Trimestriel', 'Semestriel', 'Annuel', 'Ponctuel'];
 
     showModalBottomSheet(
       context: context,
@@ -339,6 +344,8 @@ class _HomeScreenState extends State<HomeScreen> {
       builder: (ctx) {
         return StatefulBuilder(
           builder: (context, setStateModal) {
+            bool isDonPonctuel = (selectedPeriodicity == 'Ponctuel');
+
             return Padding(
               padding: EdgeInsets.only(
                 bottom: MediaQuery.of(ctx).viewInsets.bottom,
@@ -362,12 +369,17 @@ class _HomeScreenState extends State<HomeScreen> {
                     keyboardType: TextInputType.number,
                   ),
                   const SizedBox(height: 12),
-                  TextField(
-                    controller: dayController,
-                    decoration: const InputDecoration(labelText: 'Jour du mois (1-31)', prefixIcon: Icon(Icons.calendar_today)),
-                    keyboardType: TextInputType.number,
-                  ),
-                  const SizedBox(height: 12),
+                  if (!isDonPonctuel)
+                    Column(
+                      children: [
+                        TextField(
+                          controller: dayController,
+                          decoration: const InputDecoration(labelText: 'Jour du mois (1-31)', prefixIcon: Icon(Icons.calendar_today)),
+                          keyboardType: TextInputType.number,
+                        ),
+                        const SizedBox(height: 12),
+                      ],
+                    ),
                   TextField(
                     controller: missionaryNameController,
                     decoration: const InputDecoration(labelText: 'Nom et Prénoms du missionnaire', prefixIcon: Icon(Icons.person)),
@@ -390,12 +402,21 @@ class _HomeScreenState extends State<HomeScreen> {
                   ),
                   const SizedBox(height: 24),
                   ElevatedButton(
-                    onPressed: _isSubmittingMission ? null : () => _saveMissionCommitment(
-                      ctx,
-                      amountController,
-                      dayController,
-                      missionaryNameController,
-                      selectedPeriodicity,
+                    onPressed: _isSubmittingMission
+                        ? null
+                        : () => _saveMissionCommitment(
+                            ctx,
+                            amountController,
+                            dayController,
+                            missionaryNameController,
+                            selectedPeriodicity,
+                            isDonPonctuel,
+                          ),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFFD4A017),
+                      foregroundColor: Colors.white,
+                      minimumSize: const Size(double.infinity, 50),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(30)),
                     ),
                     child: _isSubmittingMission
                         ? const SizedBox(
@@ -403,7 +424,7 @@ class _HomeScreenState extends State<HomeScreen> {
                             height: 20,
                             child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
                           )
-                        : const Text('Enregistrer l\'engagement', style: TextStyle(fontSize: 16)),
+                        : Text(isDonPonctuel ? 'Procéder au paiement' : 'Enregistrer l\'engagement', style: const TextStyle(fontSize: 16)),
                   ),
                   const SizedBox(height: 16),
                 ],
@@ -415,62 +436,281 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  // Fonction séparée comme dans ServiceListScreen
+  // Fonction de soumission (identique au pattern de ServiceListScreen)
   Future<void> _saveMissionCommitment(
     BuildContext ctx,
     TextEditingController amountController,
     TextEditingController dayController,
     TextEditingController missionaryNameController,
     String periodicity,
+    bool isDonPonctuel,
   ) async {
     if (_isSubmittingMission) return;
+    setState(() => _isSubmittingMission = true);
+
     final amount = int.tryParse(amountController.text.trim());
-    final day = int.tryParse(dayController.text.trim());
     final name = missionaryNameController.text.trim();
 
     if (amount == null || amount <= 0) {
       ScaffoldMessenger.of(ctx).showSnackBar(const SnackBar(content: Text('Montant invalide')));
-      return;
-    }
-    if (day == null || day < 1 || day > 31) {
-      ScaffoldMessenger.of(ctx).showSnackBar(const SnackBar(content: Text('Jour invalide (1-31)')));
+      setState(() => _isSubmittingMission = false);
       return;
     }
     if (name.isEmpty) {
       ScaffoldMessenger.of(ctx).showSnackBar(const SnackBar(content: Text('Veuillez saisir le nom du missionnaire')));
-      return;
-    }
-
-    setState(() => _isSubmittingMission = true);
-    final token = await AuthService.getToken();
-    if (token == null) {
       setState(() => _isSubmittingMission = false);
       return;
     }
+
     try {
-      final response = await http.post(
-        Uri.parse('$_baseUrl/api/auth/service-commitments'),
-        headers: {'Content-Type': 'application/json', 'Authorization': 'Bearer $token'},
-        body: jsonEncode({
-          'service_name': 'Missionnaire',
-          'item_name': name,
-          'amount': amount,
-          'day_of_month': day,
-          'periodicity': periodicity,
-          'reason': null,
-        }),
-      );
-      if (response.statusCode == 201) {
+      if (isDonPonctuel) {
+        final token = await AuthService.getToken();
+        if (token == null) {
+          ScaffoldMessenger.of(ctx).showSnackBar(const SnackBar(content: Text('Utilisateur non connecté')));
+          setState(() => _isSubmittingMission = false);
+          return;
+        }
+        final response = await http.post(
+          Uri.parse('$_baseUrl/api/donations/initiate'),
+          headers: {'Content-Type': 'application/json', 'Authorization': 'Bearer $token'},
+          body: jsonEncode({
+            'project_id': _generalProjectId,
+            'amount': amount,
+            'is_anonymous': false,
+            'donation_type': 'one_time'
+          }),
+        );
         Navigator.pop(ctx);
-        await _fetchServiceCommitments();
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Engagement missionnaire enregistré')));
+        if (response.statusCode == 200) {
+          final data = jsonDecode(response.body);
+          final checkoutUrl = data['checkout_url'];
+          ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Paiement : $checkoutUrl')));
+        } else {
+          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Erreur initiation paiement')));
+        }
       } else {
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Erreur lors de l\'enregistrement')));
+        final day = int.tryParse(dayController.text.trim());
+        if (day == null || day < 1 || day > 31) {
+          ScaffoldMessenger.of(ctx).showSnackBar(const SnackBar(content: Text('Jour invalide (1-31)')));
+          setState(() => _isSubmittingMission = false);
+          return;
+        }
+        final token = await AuthService.getToken();
+        if (token == null) {
+          ScaffoldMessenger.of(ctx).showSnackBar(const SnackBar(content: Text('Utilisateur non connecté')));
+          setState(() => _isSubmittingMission = false);
+          return;
+        }
+        final response = await http.post(
+          Uri.parse('$_baseUrl/api/auth/service-commitments'),
+          headers: {'Content-Type': 'application/json', 'Authorization': 'Bearer $token'},
+          body: jsonEncode({
+            'service_name': 'Missionnaire',
+            'item_name': name,
+            'amount': amount,
+            'day_of_month': day,
+            'periodicity': _mapPeriodicityToBackend(periodicity),
+            'reason': null,
+          }),
+        );
+        Navigator.pop(ctx);
+        if (response.statusCode == 201) {
+          await _fetchServiceCommitments();
+          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Engagement missionnaire enregistré')));
+        } else {
+          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Erreur lors de l\'enregistrement')));
+        }
       }
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Erreur réseau')));
+      if (!isDonPonctuel) {
+        setState(() => _isSubmittingMission = false);
+      }
     } finally {
-      if (mounted) setState(() => _isSubmittingMission = false);
+      if (mounted) {
+        setState(() => _isSubmittingMission = false);
+      }
+    }
+  }
+
+  // Méthodes pour modifier et supprimer un engagement de service
+  Future<void> _editServiceCommitment(Map<String, dynamic> commitment) async {
+    final TextEditingController amountController = TextEditingController(text: commitment['amount'].toString());
+    final TextEditingController dayController = TextEditingController(text: commitment['day_of_month'].toString());
+
+    String storedPeriodicity = commitment['periodicity'] ?? 'mensuel';
+    String selectedPeriodicity;
+    if (storedPeriodicity.toLowerCase() == 'ponctuel') {
+      selectedPeriodicity = 'Ponctuel';
+    } else {
+      selectedPeriodicity = storedPeriodicity.isNotEmpty
+          ? storedPeriodicity[0].toUpperCase() + storedPeriodicity.substring(1).toLowerCase()
+          : 'Mensuel';
+    }
+
+    final List<String> periodicities = ['Mensuel', 'Bimensuel', 'Trimestriel', 'Semestriel', 'Annuel', 'Ponctuel'];
+
+    final TextEditingController reasonController = TextEditingController(text: commitment['reason'] ?? '');
+    final bool isMissionnaire = (commitment['service_name'] == 'Missionnaire');
+    final String itemName = commitment['item_name'];
+
+    bool showReasonField = !isMissionnaire && (
+        (commitment['reason'] != null && commitment['reason'].isNotEmpty) ||
+        (commitment['service_name'] == 'IIFM' && (itemName == 'Fonctionnement' || itemName == 'infrastructures')) ||
+        (commitment['service_name'] == 'Zones' && (itemName == 'Zone de Daloa' || itemName == 'Zone de Bouaké')) ||
+        (commitment['service_name'] == 'Équipements' && itemName == 'Achat matériel divers') ||
+        (commitment['reason']?.isNotEmpty ?? false)
+    );
+
+    await showDialog(
+      context: context,
+      builder: (ctx) {
+        return StatefulBuilder(
+          builder: (context, setStateModal) {
+            bool isDonPonctuel = (selectedPeriodicity == 'Ponctuel');
+            return AlertDialog(
+              title: Text('Modifier l\'engagement'),
+              content: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Align(
+                    alignment: Alignment.centerLeft,
+                    child: Text(
+                      '${commitment['service_name']}',
+                      style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Align(
+                    alignment: Alignment.centerLeft,
+                    child: Text(
+                      isMissionnaire ? 'Soutenir un missionnaire' : itemName,
+                      style: const TextStyle(fontStyle: FontStyle.italic),
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  TextField(
+                    controller: amountController,
+                    decoration: const InputDecoration(labelText: 'Montant (FCFA)'),
+                    keyboardType: TextInputType.number,
+                  ),
+                  const SizedBox(height: 12),
+                  if (!isDonPonctuel)
+                    TextField(
+                      controller: dayController,
+                      decoration: const InputDecoration(labelText: 'Jour du mois (1-31)'),
+                      keyboardType: TextInputType.number,
+                    ),
+                  const SizedBox(height: 12),
+                  TextField(
+                    controller: reasonController,
+                    decoration: InputDecoration(
+                      labelText: isMissionnaire ? 'Nom et Prénoms du missionnaire' : 'Objet du don',
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  DropdownButtonFormField<String>(
+                    value: selectedPeriodicity,
+                    decoration: const InputDecoration(labelText: 'Périodicité'),
+                    items: periodicities.map((p) => DropdownMenuItem(value: p, child: Text(p))).toList(),
+                    onChanged: (v) => setStateModal(() => selectedPeriodicity = v!),
+                  ),
+                  const SizedBox(height: 12),
+                  Align(
+                    alignment: Alignment.centerLeft,
+                    child: Text(
+                      'Date d\'enregistrement : ${_formatDate(commitment['createdAt'])}',
+                      style: const TextStyle(fontSize: 12, color: Colors.grey),
+                    ),
+                  ),
+                ],
+              ),
+              actions: [
+                TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Annuler')),
+                ElevatedButton(
+                  onPressed: () async {
+                    final newAmount = double.tryParse(amountController.text.trim())?.toInt();
+                    if (newAmount == null || newAmount <= 0) {
+                      ScaffoldMessenger.of(ctx).showSnackBar(const SnackBar(content: Text('Montant invalide')));
+                      return;
+                    }
+                    final newDay = isDonPonctuel ? null : int.tryParse(dayController.text.trim());
+                    if (!isDonPonctuel && (newDay == null || newDay < 1 || newDay > 31)) {
+                      ScaffoldMessenger.of(ctx).showSnackBar(const SnackBar(content: Text('Jour invalide (1-31)')));
+                      return;
+                    }
+                    final token = await AuthService.getToken();
+                    if (token == null) return;
+                    final Map<String, dynamic> body = {
+                      'amount': newAmount,
+                      'day_of_month': newDay,
+                      'periodicity': _mapPeriodicityToBackend(selectedPeriodicity),
+                    };
+                    if (isMissionnaire) {
+                      body['item_name'] = reasonController.text.trim();
+                    } else {
+                      final newReason = reasonController.text.trim();
+                      if (newReason.isNotEmpty) {
+                        body['reason'] = newReason;
+                      }
+                    }
+                    final response = await http.put(
+                      Uri.parse('$_baseUrl/api/auth/service-commitments/${commitment['id']}'),
+                      headers: {'Content-Type': 'application/json', 'Authorization': 'Bearer $token'},
+                      body: jsonEncode(body),
+                    );
+                    Navigator.pop(ctx);
+                    if (response.statusCode == 200) {
+                      await _fetchServiceCommitments();
+                      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Engagement modifié')));
+                    } else {
+                      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Erreur modification')));
+                    }
+                  },
+                  child: const Text('Enregistrer'),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+  }
+
+  String _formatDate(dynamic dateTime) {
+    if (dateTime == null) return 'Date inconnue';
+    try {
+      final DateTime dt = DateTime.parse(dateTime);
+      return '${dt.day}/${dt.month}/${dt.year}';
+    } catch (e) {
+      return dateTime.toString();
+    }
+  }
+
+  Future<void> _deleteServiceCommitment(Map<String, dynamic> commitment) async {
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Confirmation'),
+        content: Text('Supprimer l\'engagement pour ${commitment['item_name']} ?'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Annuler')),
+          TextButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Supprimer')),
+        ],
+      ),
+    );
+    if (confirm != true) return;
+    final token = await AuthService.getToken();
+    if (token == null) return;
+    final response = await http.delete(
+      Uri.parse('$_baseUrl/api/auth/service-commitments/${commitment['id']}'),
+      headers: {'Authorization': 'Bearer $token'},
+    );
+    if (response.statusCode == 200) {
+      await _fetchServiceCommitments();
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Engagement supprimé')));
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Erreur suppression')));
     }
   }
 
@@ -481,7 +721,7 @@ class _HomeScreenState extends State<HomeScreen> {
         _showMissionnaireModal();
         return;
       case 'Champs':
-        items = ['Koyaka', 'Koulango', 'Lobi', 'Lorhon', 'Tous les Champs'];
+        items = ['Koyaka', 'Koulango', 'Lobi', 'Lorhon', 'Engagement pour tous les champs.'];
         break;
       case 'Projets':
         items = ['Siege de l’AMI', 'Bâtiment Noé', 'Bâtiment 5 Pains et 2 Poissons'];
@@ -496,10 +736,18 @@ class _HomeScreenState extends State<HomeScreen> {
         items = ['Administration', 'Recherche', 'Finance', 'Mobilisation', 'Media'];
         break;
       case 'Social':
-        items = ['Santé', 'Scolarité des Enfants de missionnaires', 'Retrait'];
+        items = [
+          'Santé des missionnaires',
+          'Scolarité des enfants de missionnaires',
+          'Retraite des missionnaires',
+          'Renforcement de capacités des missionnaires'
+        ];
         break;
       case 'IIFM':
         items = ['scolarité des étudiants', 'infrastructures', 'Fonctionnement'];
+        break;
+      case 'Équipements':
+        items = ['Achat ordinateur', 'Achat véhicules', 'Achat caméra', 'Achat matériel divers'];
         break;
       default:
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Page $service en construction')));
@@ -677,7 +925,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   _buildCommitmentCard(),
                   const SizedBox(height: 24),
 
-                  // Grille des services (corrigée : 3 lignes, 3 colonnes, espacements ajustés)
+                  // Grille des services
                   Card(
                     elevation: 2,
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
@@ -685,27 +933,25 @@ class _HomeScreenState extends State<HomeScreen> {
                       padding: const EdgeInsets.all(12),
                       child: Column(
                         children: [
-                          const Text('Nos besoins', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Color(0xFF5D3A1A))),
+                          const Text('Les divers engagements', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Color(0xFF5D3A1A))),
                           const SizedBox(height: 16),
                           GridView.count(
                             shrinkWrap: true,
                             physics: const NeverScrollableScrollPhysics(),
-                            crossAxisCount: 3,               // 3 colonnes pour 3 lignes
-                            childAspectRatio: 1.2,          // plus de hauteur pour éviter le chevauchement
+                            crossAxisCount: 3,
+                            childAspectRatio: 1.2,
                             crossAxisSpacing: 12,
-                            mainAxisSpacing: 24,             // espace vertical suffisant
+                            mainAxisSpacing: 24,
                             children: [
-                              // Ligne 1 (3 éléments)
-                              _buildServiceCircle('Missionnaire', Icons.people, const Color(0xFFFFCDD2)),
                               _buildServiceCircle('Champs', Icons.church, const Color(0xFFC8E6C9)),
+                              _buildServiceCircle('Missionnaire', Icons.people, const Color(0xFFFFCDD2)),
                               _buildServiceCircle('Projets', Icons.work, const Color(0xFFBBDEFB)),
-                              // Ligne 2 (3 éléments)
-                              _buildServiceCircle('Activités', Icons.event, const Color(0xFFFFF9C4)),
-                              _buildServiceCircle('Zones', Icons.location_on, const Color(0xFFE1BEE7)),
                               _buildServiceCircle('Départements', Icons.apartment, const Color(0xFFB2EBF2)),
-                              // Ligne 3 (2 éléments restants, centrés automatiquement)
                               _buildServiceCircle('IIFM', Icons.school, const Color(0xFFFFCDD2)),
+                              _buildServiceCircle('Zones', Icons.location_on, const Color(0xFFE1BEE7)),
+                              _buildServiceCircle('Activités', Icons.event, const Color(0xFFFFF9C4)),
                               _buildServiceCircle('Social', Icons.volunteer_activism, const Color(0xFFC8E6C9)),
+                              _buildServiceCircle('Équipements', Icons.inventory, const Color(0xFFE0E0E0)),
                             ],
                           ),
                         ],
@@ -735,7 +981,7 @@ class _HomeScreenState extends State<HomeScreen> {
                                 margin: const EdgeInsets.only(bottom: 8),
                                 child: ListTile(
                                   title: Text('${d['amount']} FCFA'),
-                                  subtitle: Text('Date : ${DateTime.parse(d['createdAt']).toLocal().toString().substring(0, 16)}'),
+                                  subtitle: Text('${_formatDate(d['createdAt'])} - ${d['status']}'),
                                   trailing: Chip(label: Text(d['status'])),
                                 ),
                               )).toList(),
@@ -745,14 +991,45 @@ class _HomeScreenState extends State<HomeScreen> {
                               const Text('Engagements en attente', style: TextStyle(fontWeight: FontWeight.bold)),
                               ..._serviceCommitments.map((c) => Card(
                                 margin: const EdgeInsets.only(bottom: 8),
-                                child: ListTile(
-                                  title: Text('${c['item_name']} : ${c['amount']} FCFA'),
-                                  subtitle: Text('Jour ${c['day_of_month']} - ${c['periodicity']}'),
-                                  trailing: ElevatedButton(
-                                    onPressed: () => _honorServiceCommitment(c),
-                                    style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFFD4A017)),
-                                    child: const Text('Honorer'),
-                                  ),
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    ListTile(
+                                      title: Text(
+                                        '${c['service_name']} - ${c['item_name']}',
+                                        style: const TextStyle(fontWeight: FontWeight.bold),
+                                      ),
+                                      subtitle: Column(
+                                        crossAxisAlignment: CrossAxisAlignment.start,
+                                        children: [
+                                          Text('Montant : ${c['amount']} FCFA'),
+                                          Text('Jour : ${c['day_of_month'] ?? '-'}'),
+                                          if (c['reason'] != null && c['reason'].isNotEmpty)
+                                            Text('Objet : ${c['reason']}'),
+                                          Text('Périodicité : ${c['periodicity']}'),
+                                          Text('Date : ${_formatDate(c['createdAt'])}', style: const TextStyle(fontSize: 12)),
+                                        ],
+                                      ),
+                                    ),
+                                    ButtonBar(
+                                      children: [
+                                        ElevatedButton(
+                                          onPressed: () => _honorServiceCommitment(c),
+                                          style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFFD4A017)),
+                                          child: const Text('Honorer'),
+                                        ),
+                                        OutlinedButton(
+                                          onPressed: () => _editServiceCommitment(c),
+                                          child: const Text('Modifier'),
+                                        ),
+                                        OutlinedButton(
+                                          onPressed: () => _deleteServiceCommitment(c),
+                                          style: OutlinedButton.styleFrom(foregroundColor: Colors.red),
+                                          child: const Text('Supprimer'),
+                                        ),
+                                      ],
+                                    ),
+                                  ],
                                 ),
                               )).toList(),
                             ],
@@ -792,7 +1069,7 @@ class _HomeScreenState extends State<HomeScreen> {
             title,
             style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w500, color: Color(0xFF5D3A1A)),
             textAlign: TextAlign.center,
-            softWrap: false,          // empêche le retour à la ligne, force sur une ligne
+            softWrap: false,
             overflow: TextOverflow.visible,
           ),
         ],
@@ -824,7 +1101,7 @@ class _HomeScreenState extends State<HomeScreen> {
     final rawAmount = _commitment!['amount'];
     final double amountValue = double.tryParse(rawAmount.toString()) ?? 0.0;
     final day = _commitment!['day_of_month'];
-    final periodicity = _commitment!['periodicity'] ?? 'mensuel';
+    final periodicity = _commitment!['periodicity'] ?? 'Mensuel';
     return Card(
       elevation: 4,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
