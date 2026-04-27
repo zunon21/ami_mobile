@@ -16,19 +16,19 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
       'title': 'Semer la graine du salut dans les nations',
       'description':
           'L’Action Missionnaire Interafricaine (AMI) se consacre à porter la lumière de l’Évangile là où elle n’a pas encore été annoncée. En devenant partenaire, vous participez activement à transformer des vies et à ouvrir le chemin du salut à des multitudes.',
-      'image': 'assets/images/onboarding1.jpg',
+      'image': 'assets/images/onboarding1.png',  // modifié .jpg -> .png
     },
     {
       'title': 'Orientez votre générosité avec impact',
       'description':
           'Soutenez des projets missionnaires, accompagnez un missionnaire sur le terrain, financez un champ missionnaire ou contribuez à une zone spécifique. Selon la conviction que Dieu met dans votre cœur, choisissez où votre don agit pour l’éternité.',
-      'image': 'assets/images/onboarding2.jpg',
+      'image': 'assets/images/onboarding2.png',  // modifié .jpg -> .png
     },
     {
       'title': 'Votre engagement fait la différence',
       'description':
           'Chaque engagement compte. Rejoignez la grande famille des partenaires de l’AMI Côte d’Ivoire. Que ce soit par un soutien mensuel ou un don ponctuel, votre participation devient un instrument puissant entre les mains de Dieu. Ensemble, faisons avancer l’œuvre et impactons les nations.',
-      'image': 'assets/images/onboarding3.jpg',
+      'image': 'assets/images/onboarding3.png',  // modifié .jpg -> .png
     },
   ];
 

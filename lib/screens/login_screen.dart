@@ -63,8 +63,16 @@ class _LoginScreenState extends State<LoginScreen> {
       );
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
-        if (data['code'] != null) print('Code reçu : ${data['code']}');
-        setState(() { _step = 'otp'; _tempPhone = fullPhone; _status = 'Code envoyé.'; });
+        final code = data['code'];
+        // Afficher le code à l'utilisateur
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Votre code OTP : $code'),
+            duration: Duration(seconds: 10),
+            backgroundColor: Colors.green,
+          ),
+        );
+        setState(() { _step = 'otp'; _tempPhone = fullPhone; _status = 'Code envoyé (consultez le message ci-dessous)'; });
       } else {
         setState(() => _status = 'Erreur envoi code');
       }

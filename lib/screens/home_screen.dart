@@ -16,6 +16,7 @@ class _HomeScreenState extends State<HomeScreen> {
   Map<String, dynamic>? _commitment;
   List<dynamic> _recurringDonations = [];
   List<dynamic> _serviceCommitments = [];
+  List<dynamic> _paymentHistory = []; // Nouvelle liste pour l'historique des paiements
   bool _isLoading = true;
   bool _isModalOpen = false;
   bool _isSubmittingMission = false;
@@ -28,13 +29,19 @@ class _HomeScreenState extends State<HomeScreen> {
 
   final List<String> _periodicities = ['Mensuel', 'Bimensuel', 'Trimestriel', 'Semestriel', 'Annuel'];
 
-  // Fonction utilitaire : convertit la périodicité affichée en valeur backend
-  // CORRECTION : "Bimensuel" -> "bimestriel" (car backend n'accepte pas "bimensuel")
   String _mapPeriodicityToBackend(String periodicity) {
     switch (periodicity.toLowerCase()) {
       case 'bimensuel': return 'bimestriel';
       default: return periodicity.toLowerCase();
     }
+  }
+
+  String _capitalizePeriodicity(String periodicity) {
+    if (periodicity.isEmpty) return 'Mensuel';
+    final lower = periodicity.toLowerCase();
+    if (lower == 'bimestriel') return 'Bimensuel';
+    if (lower == 'ponctuel') return 'Ponctuel';
+    return periodicity[0].toUpperCase() + periodicity.substring(1).toLowerCase();
   }
 
   @override
@@ -48,6 +55,7 @@ class _HomeScreenState extends State<HomeScreen> {
     await _fetchCommitment();
     await _fetchRecurringDonations();
     await _fetchServiceCommitments();
+    await _fetchPaymentHistory(); // Charger l'historique des paiements
     setState(() => _isLoading = false);
   }
 
@@ -102,6 +110,80 @@ class _HomeScreenState extends State<HomeScreen> {
     }
   }
 
+  // Nouvelle méthode : récupère tous les dons réussis
+  Future<void> _fetchPaymentHistory() async {
+    final token = await AuthService.getToken();
+    if (token == null) return;
+    try {
+      final response = await http.get(
+        Uri.parse('$_baseUrl/api/donations'),
+        headers: {'Authorization': 'Bearer $token'},
+      );
+      if (response.statusCode == 200) {
+        final List<dynamic> all = jsonDecode(response.body);
+        setState(() {
+          _paymentHistory = all.where((d) => d['status'] == 'success').toList();
+        });
+      }
+    } catch (e) {
+      print('Erreur récupération historique des paiements : $e');
+    }
+  }
+
+  // Afficher le modal des reçus de paiement
+  void _showPaymentReceipt() {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
+      builder: (ctx) {
+        return DraggableScrollableSheet(
+          expand: false,
+          initialChildSize: 0.6,
+          maxChildSize: 0.9,
+          minChildSize: 0.4,
+          builder: (context, scrollController) {
+            return Column(
+              children: [
+                const Padding(
+                  padding: EdgeInsets.all(16),
+                  child: Text(
+                    'Reçu de paiement',
+                    style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: Color(0xFF5D3A1A)),
+                  ),
+                ),
+                const Divider(),
+                Expanded(
+                  child: _paymentHistory.isEmpty
+                      ? const Center(child: Text('Aucun paiement effectué'))
+                      : ListView.builder(
+                          controller: scrollController,
+                          itemCount: _paymentHistory.length,
+                          itemBuilder: (ctx, index) {
+                            final payment = _paymentHistory[index];
+                            return Card(
+                              margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+                              child: ListTile(
+                                leading: const Icon(Icons.receipt, color: Color(0xFFD4A017)),
+                                title: Text('${payment['amount']} FCFA'),
+                                subtitle: Text('Date : ${_formatDate(payment['createdAt'])} • ${payment['status']}'),
+                                trailing: const Icon(Icons.chevron_right),
+                                onTap: () {
+                                  // Optionnel : afficher plus de détails
+                                },
+                              ),
+                            );
+                          },
+                        ),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+  }
+
   void _showCommitmentModal({bool isEditing = false}) {
     if (_isModalOpen) return;
     _isModalOpen = true;
@@ -109,7 +191,8 @@ class _HomeScreenState extends State<HomeScreen> {
     if (isEditing && _commitment != null) {
       _amountController.text = _commitment!['amount'].toString();
       _dayController.text = _commitment!['day_of_month'].toString();
-      _selectedPeriodicity = _commitment!['periodicity'] ?? 'Mensuel';
+      String rawPeriod = _commitment!['periodicity'] ?? 'mensuel';
+      _selectedPeriodicity = _capitalizePeriodicity(rawPeriod);
     } else {
       _amountController.clear();
       _dayController.clear();
@@ -172,10 +255,11 @@ class _HomeScreenState extends State<HomeScreen> {
                       ScaffoldMessenger.of(ctx).showSnackBar(SnackBar(content: Text('Montant ou jour invalide')));
                       return;
                     }
+                    // CORRECTION : utiliser la conversion pour le backend
                     final success = await CommitmentService.saveCommitment(
                       amount: amount,
                       dayOfMonth: day,
-                      periodicity: _selectedPeriodicity,
+                      periodicity: _mapPeriodicityToBackend(_selectedPeriodicity),
                       reason: null,
                     );
                     Navigator.pop(ctx);
@@ -197,83 +281,9 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  // Paiement direct (offrande missionnaire)
-  Future<void> _makeDirectDonation(String title, double amount, String reason) async {
-    final token = await AuthService.getToken();
-    if (token == null) return;
-    final response = await http.post(
-      Uri.parse('$_baseUrl/api/donations/initiate'),
-      headers: {'Content-Type': 'application/json', 'Authorization': 'Bearer $token'},
-      body: jsonEncode({
-        'project_id': _generalProjectId,
-        'amount': amount.toInt(),
-        'is_anonymous': false,
-        'donation_type': 'one_time'
-      }),
-    );
-    if (response.statusCode == 200) {
-      final data = jsonDecode(response.body);
-      final checkoutUrl = data['checkout_url'];
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Paiement : $checkoutUrl')));
-    } else {
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Erreur initiation paiement')));
-    }
-  }
-
-  void _showOffrandeMissionnaireModal() {
-    final TextEditingController amountCtrl = TextEditingController();
-    final TextEditingController reasonCtrl = TextEditingController();
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
-      builder: (ctx) {
-        return Padding(
-          padding: EdgeInsets.only(bottom: MediaQuery.of(ctx).viewInsets.bottom, left: 16, right: 16, top: 16),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const Text('Offrande Missionnaire', style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: Color(0xFF5D3A1A))),
-              const SizedBox(height: 8),
-              const Text('Soutenez l’œuvre de Dieu par un don immédiat', style: TextStyle(fontSize: 14, color: Colors.grey)),
-              const SizedBox(height: 16),
-              TextField(
-                controller: amountCtrl,
-                decoration: const InputDecoration(labelText: 'Montant (FCFA)', prefixIcon: Icon(Icons.money)),
-                keyboardType: TextInputType.number,
-              ),
-              const SizedBox(height: 12),
-              TextField(
-                controller: reasonCtrl,
-                decoration: const InputDecoration(labelText: 'Raison (optionnel)', prefixIcon: Icon(Icons.edit)),
-              ),
-              const SizedBox(height: 24),
-              ElevatedButton(
-                onPressed: () async {
-                  final amount = int.tryParse(amountCtrl.text.trim());
-                  if (amount == null || amount <= 0) {
-                    ScaffoldMessenger.of(ctx).showSnackBar(const SnackBar(content: Text('Montant invalide')));
-                    return;
-                  }
-                  final reason = reasonCtrl.text.trim();
-                  Navigator.pop(ctx);
-                  await _makeDirectDonation('Offrande missionnaire', amount.toDouble(), reason);
-                },
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFFD4A017),
-                  foregroundColor: Colors.white,
-                  minimumSize: const Size(double.infinity, 50),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(30)),
-                ),
-                child: const Text('Procéder au paiement', style: TextStyle(fontSize: 16)),
-              ),
-              const SizedBox(height: 16),
-            ],
-          ),
-        );
-      },
-    );
-  }
+  // --- Paiement direct (offrande missionnaire) - SUPPRIMÉ ---
+  // Les fonctions _makeDirectDonation et _showOffrandeMissionnaireModal sont supprimées
+  // car le bouton a été enlevé. On garde uniquement _showDonationModal.
 
   void _showDonationModal({required String title, required String projectId, double? presetAmount}) {
     final amountController = TextEditingController(text: presetAmount?.toString() ?? '');
@@ -333,7 +343,6 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  // Formulaire d'engagement pour un missionnaire avec gestion du "Ponctuel"
   void _showMissionnaireModal() {
     final TextEditingController amountController = TextEditingController();
     final TextEditingController dayController = TextEditingController();
@@ -440,7 +449,6 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  // Fonction de soumission (identique au pattern de ServiceListScreen)
   Future<void> _saveMissionCommitment(
     BuildContext ctx,
     TextEditingController amountController,
@@ -537,6 +545,34 @@ class _HomeScreenState extends State<HomeScreen> {
     }
   }
 
+  // Nouvelle méthode pour supprimer l'engagement mensuel (Fonctionnement de l'AMI)
+  Future<void> _deleteCommitment() async {
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Confirmation'),
+        content: const Text('Supprimer votre engagement mensuel ?'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Annuler')),
+          TextButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Supprimer')),
+        ],
+      ),
+    );
+    if (confirm != true) return;
+    final token = await AuthService.getToken();
+    if (token == null) return;
+    final response = await http.delete(
+      Uri.parse('$_baseUrl/api/auth/commitment'),
+      headers: {'Authorization': 'Bearer $token'},
+    );
+    if (response.statusCode == 200) {
+      await _fetchCommitment();
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Engagement supprimé')));
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Erreur suppression')));
+    }
+  }
+
   // Méthodes pour modifier et supprimer un engagement de service
   Future<void> _editServiceCommitment(Map<String, dynamic> commitment) async {
     final TextEditingController amountController = TextEditingController(text: commitment['amount'].toString());
@@ -547,7 +583,7 @@ class _HomeScreenState extends State<HomeScreen> {
     if (storedPeriodicity.toLowerCase() == 'ponctuel') {
       selectedPeriodicity = 'Ponctuel';
     } else if (storedPeriodicity.toLowerCase() == 'bimestriel') {
-      selectedPeriodicity = 'Bimensuel'; // pour affichage cohérent
+      selectedPeriodicity = 'Bimensuel';
     } else {
       selectedPeriodicity = storedPeriodicity.isNotEmpty
           ? storedPeriodicity[0].toUpperCase() + storedPeriodicity.substring(1).toLowerCase()
@@ -767,14 +803,6 @@ class _HomeScreenState extends State<HomeScreen> {
     setState(() {});
   }
 
-  void _honorServiceCommitment(Map<String, dynamic> commitment) {
-    _showDonationModal(
-      title: commitment['item_name'],
-      projectId: _generalProjectId,
-      presetAmount: (commitment['amount'] as num).toDouble(),
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -874,57 +902,8 @@ class _HomeScreenState extends State<HomeScreen> {
                   ),
                   const SizedBox(height: 16),
 
-                  // Bouton Offrande Missionnaire (design unique)
-                  Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 8),
-                    child: InkWell(
-                      onTap: _showOffrandeMissionnaireModal,
-                      child: Container(
-                        width: double.infinity,
-                        padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 20),
-                        decoration: BoxDecoration(
-                          gradient: const LinearGradient(
-                            colors: [Color(0xFFD4A017), Color(0xFFF57C00), Color(0xFFFF8F00)],
-                            begin: Alignment.topLeft,
-                            end: Alignment.bottomRight,
-                          ),
-                          borderRadius: BorderRadius.circular(40),
-                          boxShadow: [
-                            BoxShadow(
-                              color: const Color(0xFFD4A017).withOpacity(0.5),
-                              blurRadius: 12,
-                              offset: const Offset(0, 6),
-                            ),
-                          ],
-                        ),
-                        child: Row(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            const Icon(Icons.volunteer_activism, color: Colors.white, size: 28),
-                            const SizedBox(width: 12),
-                            const Text(
-                              'Offrande Missionnaire',
-                              style: TextStyle(
-                                fontSize: 18,
-                                fontWeight: FontWeight.bold,
-                                color: Colors.white,
-                                letterSpacing: 1.2,
-                              ),
-                            ),
-                            const SizedBox(width: 12),
-                            Container(
-                              padding: const EdgeInsets.all(4),
-                              decoration: const BoxDecoration(
-                                color: Colors.white,
-                                shape: BoxShape.circle,
-                              ),
-                              child: const Icon(Icons.arrow_forward, color: Color(0xFFD4A017), size: 16),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                  ),
+                  // Le bouton Offrande Missionnaire a été SUPPRIMÉ
+
                   const SizedBox(height: 20),
 
                   // Fonctionnement de l'AMI
@@ -966,7 +945,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   ),
                   const SizedBox(height: 24),
 
-                  // Historique des engagements
+                  // Historique des engagements (corrigé : bouton Honorer direct)
                   const Text(
                     'Historique des engagements',
                     style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Color(0xFF5D3A1A)),
@@ -1017,23 +996,33 @@ class _HomeScreenState extends State<HomeScreen> {
                                         ],
                                       ),
                                     ),
-                                    ButtonBar(
-                                      children: [
-                                        ElevatedButton(
-                                          onPressed: () => _honorServiceCommitment(c),
-                                          style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFFD4A017)),
-                                          child: const Text('Honorer'),
-                                        ),
-                                        OutlinedButton(
-                                          onPressed: () => _editServiceCommitment(c),
-                                          child: const Text('Modifier'),
-                                        ),
-                                        OutlinedButton(
-                                          onPressed: () => _deleteServiceCommitment(c),
-                                          style: OutlinedButton.styleFrom(foregroundColor: Colors.red),
-                                          child: const Text('Supprimer'),
-                                        ),
-                                      ],
+                                    Padding(
+                                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                                      child: Row(
+                                        mainAxisAlignment: MainAxisAlignment.center,
+                                        children: [
+                                          ElevatedButton(
+                                            onPressed: () => _showDonationModal(
+                                              title: c['item_name'],
+                                              projectId: _generalProjectId,
+                                              presetAmount: (c['amount'] as num).toDouble(),
+                                            ),
+                                            style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFFD4A017)),
+                                            child: const Text('Honorer'),
+                                          ),
+                                          const SizedBox(width: 12),
+                                          OutlinedButton(
+                                            onPressed: () => _editServiceCommitment(c),
+                                            child: const Text('Modifier'),
+                                          ),
+                                          const SizedBox(width: 12),
+                                          OutlinedButton(
+                                            onPressed: () => _deleteServiceCommitment(c),
+                                            style: OutlinedButton.styleFrom(foregroundColor: Colors.red),
+                                            child: const Text('Supprimer'),
+                                          ),
+                                        ],
+                                      ),
                                     ),
                                   ],
                                 ),
@@ -1041,6 +1030,25 @@ class _HomeScreenState extends State<HomeScreen> {
                             ],
                           ],
                         ),
+
+                  const SizedBox(height: 16),
+
+                  // Nouveau bouton Reçu de Paiement
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 16),
+                    child: ElevatedButton.icon(
+                      onPressed: _showPaymentReceipt,
+                      icon: const Icon(Icons.receipt_long),
+                      label: const Text('Reçu de paiement', style: TextStyle(fontSize: 18)),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: const Color(0xFFD4A017),
+                        foregroundColor: Colors.white,
+                        minimumSize: const Size(double.infinity, 50),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(30)),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 20),
                 ],
               ),
             ),
@@ -1138,6 +1146,13 @@ class _HomeScreenState extends State<HomeScreen> {
                   ),
                   style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFFD4A017)),
                   child: const Text('Honorer'),
+                ),
+                const SizedBox(width: 12),
+                // Nouveau bouton Supprimer
+                ElevatedButton(
+                  onPressed: _deleteCommitment,
+                  style: ElevatedButton.styleFrom(backgroundColor: Colors.red, foregroundColor: Colors.white),
+                  child: const Text('Supprimer'),
                 ),
               ],
             ),
