@@ -1,6 +1,8 @@
-﻿<manifest xmlns:android="http://schemas.android.com/apk/res/android">
-    <uses-permission android:name="android.permission.INTERNET" />`n`n<application
-        android:label="ami_mobile"
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <uses-permission android:name="android.permission.INTERNET" />
+
+    <application
+        android:label="PARTENAIRE DE L'AMI"
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher">
         <activity
@@ -43,4 +45,3 @@
         </intent>
     </queries>
 </manifest>
-

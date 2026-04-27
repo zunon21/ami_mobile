@@ -20,6 +20,7 @@ dev_dependencies:
   flutter_test:
     sdk: flutter
   flutter_lints: ^6.0.0
+  flutter_launcher_icons: ^0.13.1
 
 flutter:
   uses-material-design: true
@@ -28,9 +29,9 @@ flutter:
     - assets/images/logo.png
     - assets/images/splash_background.png
     - assets/images/login_background.png
-    - assets/images/onboarding1.jpg
-    - assets/images/onboarding2.jpg
-    - assets/images/onboarding3.jpg
+    - assets/images/onboarding1.png
+    - assets/images/onboarding2.png
+    - assets/images/onboarding3.png
     - assets/images/champs/lobi.png
     - assets/images/champs/koulango.png
     - assets/images/champs/lorhon.png
@@ -44,3 +45,8 @@ flutter_native_splash:
   android: true
   ios: true
   web: false
+
+flutter_launcher_icons:
+  android: true
+  ios: true
+  image_path: "assets/icon/partenaire_ami.png"
