@@ -22,13 +22,14 @@ class _ServiceListScreenState extends State<ServiceListScreen> {
   String _selectedPeriodicity = 'Mensuel';
   bool _isLoading = false;
 
-  // Contrôleurs pour les champs optionnels (seront créés dynamiquement)
-  TextEditingController? _extraController;
+  // Contrôleur pour le champ "Motifs du don" (remplace les anciens extraLabel)
+  TextEditingController? _reasonController;
+  // Pour ECOMIN : choix du type d'Ecomin
+  String? _selectedEcominType;
+  final List<String> _ecominTypes = ['Adolescents', 'Benjamins', 'Adultes'];
 
   final List<String> _periodicities = ['Mensuel', 'Bimensuel', 'Trimestriel', 'Semestriel', 'Annuel', 'Ponctuel'];
 
-  // Fonction utilitaire : convertit la périodicité affichée en valeur backend
-  // CORRECTION : "Bimensuel" -> "bimestriel" (car backend n'accepte pas "bimensuel")
   String _mapPeriodicityToBackend(String periodicity) {
     switch (periodicity.toLowerCase()) {
       case 'bimensuel': return 'bimestriel';
@@ -50,7 +51,7 @@ class _ServiceListScreenState extends State<ServiceListScreen> {
     });
   }
 
-  Future<void> _saveCommitment(String itemName, {String? extraReason}) async {
+  Future<void> _saveCommitment(String itemName, {String? reasonValue, String? ecominType}) async {
     if (_isLoading) return;
 
     final amount = double.tryParse(_amountController.text.trim());
@@ -95,6 +96,7 @@ class _ServiceListScreenState extends State<ServiceListScreen> {
           setState(() => _isLoading = false);
           return;
         }
+
         final Map<String, dynamic> body = {
           'service_name': widget.title,
           'item_name': itemName,
@@ -102,9 +104,21 @@ class _ServiceListScreenState extends State<ServiceListScreen> {
           'day_of_month': day,
           'periodicity': _mapPeriodicityToBackend(_selectedPeriodicity),
         };
-        if (extraReason != null && extraReason.isNotEmpty) {
-          body['reason'] = extraReason;
+
+        // Construction du champ reason : si c'est ECOMIN et qu'un type a été choisi, on le mentionne
+        String combinedReason = '';
+        if (widget.title == 'Activités' && itemName == 'ECOMIN' && ecominType != null && ecominType.isNotEmpty) {
+          combinedReason = 'Ecomin : $ecominType';
+          if (reasonValue != null && reasonValue.isNotEmpty) {
+            combinedReason += ' - $reasonValue';
+          }
+        } else {
+          combinedReason = reasonValue ?? '';
         }
+        if (combinedReason.isNotEmpty) {
+          body['reason'] = combinedReason;
+        }
+
         final response = await http.post(
           Uri.parse('${AuthService.baseUrl}/api/auth/service-commitments'),
           headers: {'Content-Type': 'application/json', 'Authorization': 'Bearer $token'},
@@ -128,8 +142,9 @@ class _ServiceListScreenState extends State<ServiceListScreen> {
     _amountController.clear();
     _dayController.clear();
     _selectedPeriodicity = 'Mensuel';
-    _extraController?.dispose();
-    _extraController = null;
+    _reasonController?.dispose();
+    _reasonController = null;
+    _selectedEcominType = null;
 
     String modalTitle = 'Engagement pour $itemName';
     if (itemName == 'Levez les yeux') {
@@ -138,28 +153,11 @@ class _ServiceListScreenState extends State<ServiceListScreen> {
       modalTitle = 'Engagement pour le calendrier de prière prier le maître';
     }
 
-    String? extraLabel;
-    if (widget.title == 'IIFM') {
-      if (itemName == 'Fonctionnement') {
-        extraLabel = 'Précisez l\'objet exact du fonctionnement de IIFM (optionnel)';
-      } else if (itemName == 'infrastructures') {
-        extraLabel = 'Indiquez l\'infrastructure de IIFM (optionnel)';
-      }
-    } else if (widget.title == 'Zones') {
-      if (itemName == 'Zone de Bouaké') {
-        extraLabel = 'Indiquez l\'objet du don à la zone de Bouaké (optionnel)';
-      } else if (itemName == 'Zone de Daloa') {
-        extraLabel = 'Indiquez l\'objet du don à la zone de Daloa (optionnel)';
-      }
-    } else if (widget.title == 'Équipements') {
-      if (itemName == 'Achat matériel divers') {
-        extraLabel = 'Précisez le matériel (optionnel)';
-      }
-    }
+    // Pour tous les items, on ajoute un champ "Motifs du don (optionnel)"
+    _reasonController = TextEditingController();
 
-    if (extraLabel != null) {
-      _extraController = TextEditingController();
-    }
+    // Indicateur pour savoir si on affiche le dropdown ECOMIN
+    final bool isEcomin = (widget.title == 'Activités' && itemName == 'ECOMIN');
 
     showDialog(
       context: context,
@@ -184,13 +182,22 @@ class _ServiceListScreenState extends State<ServiceListScreen> {
                       decoration: const InputDecoration(labelText: 'Jour du mois (1-31)'),
                       keyboardType: TextInputType.number,
                     ),
-                  if (extraLabel != null) ...[
+                  // Spécifique à ECOMIN : sélecteur "Quel Ecomin ?"
+                  if (isEcomin) ...[
                     const SizedBox(height: 12),
-                    TextField(
-                      controller: _extraController!,
-                      decoration: InputDecoration(labelText: extraLabel),
+                    DropdownButtonFormField<String>(
+                      value: _selectedEcominType,
+                      decoration: const InputDecoration(labelText: 'Quel Ecomin ?', prefixIcon: Icon(Icons.group)),
+                      items: _ecominTypes.map((e) => DropdownMenuItem(value: e, child: Text(e))).toList(),
+                      onChanged: (v) => setModalState(() => _selectedEcominType = v),
                     ),
                   ],
+                  const SizedBox(height: 12),
+                  // Champ "Motifs du don (optionnel)" pour tous
+                  TextField(
+                    controller: _reasonController!,
+                    decoration: const InputDecoration(labelText: 'Motifs du don (optionnel)', prefixIcon: Icon(Icons.edit)),
+                  ),
                   const SizedBox(height: 12),
                   DropdownButtonFormField<String>(
                     value: _selectedPeriodicity,
@@ -208,7 +215,11 @@ class _ServiceListScreenState extends State<ServiceListScreen> {
                 ElevatedButton(
                   onPressed: _isLoading
                       ? null
-                      : () => _saveCommitment(itemName, extraReason: _extraController?.text.trim()),
+                      : () => _saveCommitment(
+                            itemName,
+                            reasonValue: _reasonController?.text.trim(),
+                            ecominType: _selectedEcominType,
+                          ),
                   child: _isLoading
                       ? const CircularProgressIndicator()
                       : Text(isDonPonctuel ? 'Procéder au paiement' : 'Enregistrer'),

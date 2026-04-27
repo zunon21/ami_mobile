@@ -16,7 +16,7 @@ class _HomeScreenState extends State<HomeScreen> {
   Map<String, dynamic>? _commitment;
   List<dynamic> _recurringDonations = [];
   List<dynamic> _serviceCommitments = [];
-  List<dynamic> _paymentHistory = []; // Nouvelle liste pour l'historique des paiements
+  List<dynamic> _paymentHistory = [];
   bool _isLoading = true;
   bool _isModalOpen = false;
   bool _isSubmittingMission = false;
@@ -27,11 +27,13 @@ class _HomeScreenState extends State<HomeScreen> {
   final TextEditingController _dayController = TextEditingController();
   String _selectedPeriodicity = 'Mensuel';
 
-  final List<String> _periodicities = ['Mensuel', 'Bimensuel', 'Trimestriel', 'Semestriel', 'Annuel'];
+  // Liste des périodicités pour le fonctionnement de l'AMI (ajout de 'Ponctuel')
+  final List<String> _periodicities = ['Mensuel', 'Bimensuel', 'Trimestriel', 'Semestriel', 'Annuel', 'Ponctuel'];
 
   String _mapPeriodicityToBackend(String periodicity) {
     switch (periodicity.toLowerCase()) {
       case 'bimensuel': return 'bimestriel';
+      case 'ponctuel': return 'ponctuel';
       default: return periodicity.toLowerCase();
     }
   }
@@ -55,7 +57,7 @@ class _HomeScreenState extends State<HomeScreen> {
     await _fetchCommitment();
     await _fetchRecurringDonations();
     await _fetchServiceCommitments();
-    await _fetchPaymentHistory(); // Charger l'historique des paiements
+    await _fetchPaymentHistory();
     setState(() => _isLoading = false);
   }
 
@@ -110,7 +112,6 @@ class _HomeScreenState extends State<HomeScreen> {
     }
   }
 
-  // Nouvelle méthode : récupère tous les dons réussis
   Future<void> _fetchPaymentHistory() async {
     final token = await AuthService.getToken();
     if (token == null) return;
@@ -130,7 +131,6 @@ class _HomeScreenState extends State<HomeScreen> {
     }
   }
 
-  // Afficher le modal des reçus de paiement
   void _showPaymentReceipt() {
     showModalBottomSheet(
       context: context,
@@ -168,9 +168,7 @@ class _HomeScreenState extends State<HomeScreen> {
                                 title: Text('${payment['amount']} FCFA'),
                                 subtitle: Text('Date : ${_formatDate(payment['createdAt'])} • ${payment['status']}'),
                                 trailing: const Icon(Icons.chevron_right),
-                                onTap: () {
-                                  // Optionnel : afficher plus de détails
-                                },
+                                onTap: () {},
                               ),
                             );
                           },
@@ -179,6 +177,114 @@ class _HomeScreenState extends State<HomeScreen> {
               ],
             );
           },
+        );
+      },
+    );
+  }
+
+  // Formulaire pour les dons de structures / organismes
+  void _showStructureDonationModal() {
+    final TextEditingController orgNameController = TextEditingController();
+    final TextEditingController amountController = TextEditingController();
+    final TextEditingController destinationController = TextEditingController();
+    final TextEditingController reasonController = TextEditingController();
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
+      builder: (ctx) {
+        return Padding(
+          padding: EdgeInsets.only(
+            bottom: MediaQuery.of(ctx).viewInsets.bottom,
+            left: 16,
+            right: 16,
+            top: 16,
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              const Text(
+                'Structures et organisme',
+                style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: Color(0xFF5D3A1A)),
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 8),
+              const Text(
+                'Faites parvenir les dons de votre structure, organisme ou cellule à l’AMI Côte d’Ivoire',
+                style: TextStyle(fontSize: 14, color: Colors.grey),
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 16),
+              TextField(
+                controller: orgNameController,
+                decoration: const InputDecoration(labelText: 'Nom de l’organisation', prefixIcon: Icon(Icons.business)),
+              ),
+              const SizedBox(height: 12),
+              TextField(
+                controller: amountController,
+                decoration: const InputDecoration(labelText: 'Montant versé (FCFA)', prefixIcon: Icon(Icons.money)),
+                keyboardType: TextInputType.number,
+              ),
+              const SizedBox(height: 12),
+              TextField(
+                controller: destinationController,
+                decoration: const InputDecoration(labelText: 'Destinations des fonds (optionnel)', prefixIcon: Icon(Icons.place)),
+              ),
+              const SizedBox(height: 12),
+              TextField(
+                controller: reasonController,
+                decoration: const InputDecoration(labelText: 'Motifs du don (optionnel)', prefixIcon: Icon(Icons.edit)),
+              ),
+              const SizedBox(height: 24),
+              ElevatedButton(
+                onPressed: () async {
+                  final String orgName = orgNameController.text.trim();
+                  final int? amount = int.tryParse(amountController.text.trim());
+                  if (orgName.isEmpty) {
+                    ScaffoldMessenger.of(ctx).showSnackBar(const SnackBar(content: Text('Veuillez saisir le nom de l’organisation')));
+                    return;
+                  }
+                  if (amount == null || amount <= 0) {
+                    ScaffoldMessenger.of(ctx).showSnackBar(const SnackBar(content: Text('Montant invalide')));
+                    return;
+                  }
+                  final token = await AuthService.getToken();
+                  if (token == null) {
+                    ScaffoldMessenger.of(ctx).showSnackBar(const SnackBar(content: Text('Utilisateur non connecté')));
+                    return;
+                  }
+                  final response = await http.post(
+                    Uri.parse('$_baseUrl/api/donations/initiate'),
+                    headers: {'Content-Type': 'application/json', 'Authorization': 'Bearer $token'},
+                    body: jsonEncode({
+                      'project_id': _generalProjectId,
+                      'amount': amount,
+                      'is_anonymous': false,
+                      'donation_type': 'one_time'
+                    }),
+                  );
+                  Navigator.pop(ctx);
+                  if (response.statusCode == 200) {
+                    final data = jsonDecode(response.body);
+                    final checkoutUrl = data['checkout_url'];
+                    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Paiement : $checkoutUrl')));
+                  } else {
+                    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Erreur initiation paiement')));
+                  }
+                },
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFFD4A017),
+                  foregroundColor: Colors.white,
+                  minimumSize: const Size(double.infinity, 50),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(30)),
+                ),
+                child: const Text('Procéder au paiement', style: TextStyle(fontSize: 16)),
+              ),
+              const SizedBox(height: 16),
+            ],
+          ),
         );
       },
     );
@@ -205,6 +311,7 @@ class _HomeScreenState extends State<HomeScreen> {
       builder: (ctx) {
         return StatefulBuilder(
           builder: (context, setStateDialog) {
+            bool isDonPonctuel = (_selectedPeriodicity == 'Ponctuel');
             return AlertDialog(
               title: Text(isEditing ? 'Modifier le fonctionnement de l\'AMI' : 'Fonctionnement de l\'AMI'),
               content: Column(
@@ -215,17 +322,18 @@ class _HomeScreenState extends State<HomeScreen> {
                     decoration: InputDecoration(labelText: 'Montant (FCFA)'),
                     keyboardType: TextInputType.number,
                   ),
-                  SizedBox(height: 12),
-                  TextField(
-                    controller: _dayController,
-                    decoration: InputDecoration(labelText: 'Jour du mois (1-31)'),
-                    keyboardType: TextInputType.number,
-                  ),
-                  SizedBox(height: 12),
+                  const SizedBox(height: 12),
+                  if (!isDonPonctuel)
+                    TextField(
+                      controller: _dayController,
+                      decoration: InputDecoration(labelText: 'Jour du mois (1-31)'),
+                      keyboardType: TextInputType.number,
+                    ),
+                  const SizedBox(height: 12),
                   DropdownButtonFormField<String>(
                     value: _selectedPeriodicity,
                     decoration: InputDecoration(labelText: 'Périodicité'),
-                    items: _periodicities.map((String period) {
+                    items: _periodicities.map((period) {
                       return DropdownMenuItem<String>(
                         value: period,
                         child: Text(period),
@@ -249,29 +357,57 @@ class _HomeScreenState extends State<HomeScreen> {
                 ),
                 ElevatedButton(
                   onPressed: () async {
-                    final amount = double.tryParse(_amountController.text.trim());
-                    final day = int.tryParse(_dayController.text.trim());
-                    if (amount == null || amount <= 0 || day == null || day < 1 || day > 31) {
-                      ScaffoldMessenger.of(ctx).showSnackBar(SnackBar(content: Text('Montant ou jour invalide')));
-                      return;
-                    }
-                    // CORRECTION : utiliser la conversion pour le backend
-                    final success = await CommitmentService.saveCommitment(
-                      amount: amount,
-                      dayOfMonth: day,
-                      periodicity: _mapPeriodicityToBackend(_selectedPeriodicity),
-                      reason: null,
-                    );
-                    Navigator.pop(ctx);
-                    _isModalOpen = false;
-                    if (success) {
-                      await _fetchCommitment();
-                      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Fonctionnement de l\'AMI enregistré')));
+                    if (isDonPonctuel) {
+                      final amount = double.tryParse(_amountController.text.trim());
+                      if (amount == null || amount <= 0) {
+                        ScaffoldMessenger.of(ctx).showSnackBar(const SnackBar(content: Text('Montant invalide')));
+                        return;
+                      }
+                      final token = await AuthService.getToken();
+                      if (token == null) return;
+                      final response = await http.post(
+                        Uri.parse('$_baseUrl/api/donations/initiate'),
+                        headers: {'Content-Type': 'application/json', 'Authorization': 'Bearer $token'},
+                        body: jsonEncode({
+                          'project_id': _generalProjectId,
+                          'amount': amount.toInt(),
+                          'is_anonymous': false,
+                          'donation_type': 'one_time'
+                        }),
+                      );
+                      Navigator.pop(ctx);
+                      _isModalOpen = false;
+                      if (response.statusCode == 200) {
+                        final data = jsonDecode(response.body);
+                        final checkoutUrl = data['checkout_url'];
+                        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Paiement : $checkoutUrl')));
+                      } else {
+                        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Erreur initiation paiement')));
+                      }
                     } else {
-                      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Erreur lors de l\'enregistrement')));
+                      final amount = double.tryParse(_amountController.text.trim());
+                      final day = int.tryParse(_dayController.text.trim());
+                      if (amount == null || amount <= 0 || day == null || day < 1 || day > 31) {
+                        ScaffoldMessenger.of(ctx).showSnackBar(SnackBar(content: Text('Montant ou jour invalide')));
+                        return;
+                      }
+                      final success = await CommitmentService.saveCommitment(
+                        amount: amount,
+                        dayOfMonth: day,
+                        periodicity: _mapPeriodicityToBackend(_selectedPeriodicity),
+                        reason: null,
+                      );
+                      Navigator.pop(ctx);
+                      _isModalOpen = false;
+                      if (success) {
+                        await _fetchCommitment();
+                        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Fonctionnement de l\'AMI enregistré')));
+                      } else {
+                        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Erreur lors de l\'enregistrement')));
+                      }
                     }
                   },
-                  child: Text('Enregistrer'),
+                  child: Text(isDonPonctuel ? 'Procéder au paiement' : 'Enregistrer'),
                 ),
               ],
             );
@@ -280,10 +416,6 @@ class _HomeScreenState extends State<HomeScreen> {
       },
     );
   }
-
-  // --- Paiement direct (offrande missionnaire) - SUPPRIMÉ ---
-  // Les fonctions _makeDirectDonation et _showOffrandeMissionnaireModal sont supprimées
-  // car le bouton a été enlevé. On garde uniquement _showDonationModal.
 
   void _showDonationModal({required String title, required String projectId, double? presetAmount}) {
     final amountController = TextEditingController(text: presetAmount?.toString() ?? '');
@@ -343,10 +475,12 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
+  // Formulaire pour Missionnaire avec ajout du champ "Motifs du don"
   void _showMissionnaireModal() {
     final TextEditingController amountController = TextEditingController();
     final TextEditingController dayController = TextEditingController();
     final TextEditingController missionaryNameController = TextEditingController();
+    final TextEditingController reasonController = TextEditingController(); // Ajouté
     String selectedPeriodicity = 'Mensuel';
     final List<String> periodicities = ['Mensuel', 'Bimensuel', 'Trimestriel', 'Semestriel', 'Annuel', 'Ponctuel'];
 
@@ -358,7 +492,6 @@ class _HomeScreenState extends State<HomeScreen> {
         return StatefulBuilder(
           builder: (context, setStateModal) {
             bool isDonPonctuel = (selectedPeriodicity == 'Ponctuel');
-
             return Padding(
               padding: EdgeInsets.only(
                 bottom: MediaQuery.of(ctx).viewInsets.bottom,
@@ -369,49 +502,26 @@ class _HomeScreenState extends State<HomeScreen> {
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  const Text(
-                    'Soutenir un missionnaire',
-                    style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: Color(0xFF5D3A1A)),
-                  ),
+                  const Text('Soutenir un missionnaire', style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: Color(0xFF5D3A1A))),
                   const SizedBox(height: 8),
                   const Text('Engagez-vous à soutenir financièrement un missionnaire', style: TextStyle(fontSize: 14, color: Colors.grey)),
                   const SizedBox(height: 16),
-                  TextField(
-                    controller: amountController,
-                    decoration: const InputDecoration(labelText: 'Montant (FCFA)', prefixIcon: Icon(Icons.money)),
-                    keyboardType: TextInputType.number,
-                  ),
+                  TextField(controller: amountController, decoration: const InputDecoration(labelText: 'Montant (FCFA)', prefixIcon: Icon(Icons.money)), keyboardType: TextInputType.number),
                   const SizedBox(height: 12),
                   if (!isDonPonctuel)
-                    Column(
-                      children: [
-                        TextField(
-                          controller: dayController,
-                          decoration: const InputDecoration(labelText: 'Jour du mois (1-31)', prefixIcon: Icon(Icons.calendar_today)),
-                          keyboardType: TextInputType.number,
-                        ),
-                        const SizedBox(height: 12),
-                      ],
-                    ),
-                  TextField(
-                    controller: missionaryNameController,
-                    decoration: const InputDecoration(labelText: 'Nom et Prénoms du missionnaire', prefixIcon: Icon(Icons.person)),
-                  ),
+                    Column(children: [
+                      TextField(controller: dayController, decoration: const InputDecoration(labelText: 'Jour du mois (1-31)', prefixIcon: Icon(Icons.calendar_today)), keyboardType: TextInputType.number),
+                      const SizedBox(height: 12),
+                    ]),
+                  TextField(controller: missionaryNameController, decoration: const InputDecoration(labelText: 'Nom et Prénoms du missionnaire', prefixIcon: Icon(Icons.person))),
+                  const SizedBox(height: 12),
+                  TextField(controller: reasonController, decoration: const InputDecoration(labelText: 'Motifs du don (optionnel)', prefixIcon: Icon(Icons.edit))),
                   const SizedBox(height: 12),
                   DropdownButtonFormField<String>(
                     value: selectedPeriodicity,
                     decoration: const InputDecoration(labelText: 'Périodicité'),
-                    items: periodicities.map((String period) {
-                      return DropdownMenuItem<String>(
-                        value: period,
-                        child: Text(period),
-                      );
-                    }).toList(),
-                    onChanged: (newValue) {
-                      setStateModal(() {
-                        selectedPeriodicity = newValue!;
-                      });
-                    },
+                    items: periodicities.map((p) => DropdownMenuItem(value: p, child: Text(p))).toList(),
+                    onChanged: (newValue) => setStateModal(() => selectedPeriodicity = newValue!),
                   ),
                   const SizedBox(height: 24),
                   ElevatedButton(
@@ -422,22 +532,12 @@ class _HomeScreenState extends State<HomeScreen> {
                             amountController,
                             dayController,
                             missionaryNameController,
+                            reasonController, // Ajouté
                             selectedPeriodicity,
                             isDonPonctuel,
                           ),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(0xFFD4A017),
-                      foregroundColor: Colors.white,
-                      minimumSize: const Size(double.infinity, 50),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(30)),
-                    ),
-                    child: _isSubmittingMission
-                        ? const SizedBox(
-                            width: 20,
-                            height: 20,
-                            child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
-                          )
-                        : Text(isDonPonctuel ? 'Procéder au paiement' : 'Enregistrer l\'engagement', style: const TextStyle(fontSize: 16)),
+                    style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFFD4A017), foregroundColor: Colors.white, minimumSize: const Size(double.infinity, 50), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(30))),
+                    child: _isSubmittingMission ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white)) : Text(isDonPonctuel ? 'Procéder au paiement' : 'Enregistrer l\'engagement', style: const TextStyle(fontSize: 16)),
                   ),
                   const SizedBox(height: 16),
                 ],
@@ -454,15 +554,15 @@ class _HomeScreenState extends State<HomeScreen> {
     TextEditingController amountController,
     TextEditingController dayController,
     TextEditingController missionaryNameController,
+    TextEditingController reasonController, // Ajouté
     String periodicity,
     bool isDonPonctuel,
   ) async {
     if (_isSubmittingMission) return;
     setState(() => _isSubmittingMission = true);
-
     final amount = int.tryParse(amountController.text.trim());
     final name = missionaryNameController.text.trim();
-
+    final motive = reasonController.text.trim(); // Ajouté
     if (amount == null || amount <= 0) {
       ScaffoldMessenger.of(ctx).showSnackBar(const SnackBar(content: Text('Montant invalide')));
       setState(() => _isSubmittingMission = false);
@@ -473,7 +573,6 @@ class _HomeScreenState extends State<HomeScreen> {
       setState(() => _isSubmittingMission = false);
       return;
     }
-
     try {
       if (isDonPonctuel) {
         final token = await AuthService.getToken();
@@ -495,8 +594,7 @@ class _HomeScreenState extends State<HomeScreen> {
         Navigator.pop(ctx);
         if (response.statusCode == 200) {
           final data = jsonDecode(response.body);
-          final checkoutUrl = data['checkout_url'];
-          ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Paiement : $checkoutUrl')));
+          ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Paiement : ${data['checkout_url']}')));
         } else {
           ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Erreur initiation paiement')));
         }
@@ -522,7 +620,7 @@ class _HomeScreenState extends State<HomeScreen> {
             'amount': amount,
             'day_of_month': day,
             'periodicity': _mapPeriodicityToBackend(periodicity),
-            'reason': null,
+            'reason': motive.isNotEmpty ? motive : null,
           }),
         );
         Navigator.pop(ctx);
@@ -535,17 +633,12 @@ class _HomeScreenState extends State<HomeScreen> {
       }
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Erreur réseau')));
-      if (!isDonPonctuel) {
-        setState(() => _isSubmittingMission = false);
-      }
+      if (!isDonPonctuel) setState(() => _isSubmittingMission = false);
     } finally {
-      if (mounted) {
-        setState(() => _isSubmittingMission = false);
-      }
+      if (mounted) setState(() => _isSubmittingMission = false);
     }
   }
 
-  // Nouvelle méthode pour supprimer l'engagement mensuel (Fonctionnement de l'AMI)
   Future<void> _deleteCommitment() async {
     final confirm = await showDialog<bool>(
       context: context,
@@ -573,11 +666,9 @@ class _HomeScreenState extends State<HomeScreen> {
     }
   }
 
-  // Méthodes pour modifier et supprimer un engagement de service
   Future<void> _editServiceCommitment(Map<String, dynamic> commitment) async {
     final TextEditingController amountController = TextEditingController(text: commitment['amount'].toString());
     final TextEditingController dayController = TextEditingController(text: commitment['day_of_month'].toString());
-
     String storedPeriodicity = commitment['periodicity'] ?? 'mensuel';
     String selectedPeriodicity;
     if (storedPeriodicity.toLowerCase() == 'ponctuel') {
@@ -585,25 +676,18 @@ class _HomeScreenState extends State<HomeScreen> {
     } else if (storedPeriodicity.toLowerCase() == 'bimestriel') {
       selectedPeriodicity = 'Bimensuel';
     } else {
-      selectedPeriodicity = storedPeriodicity.isNotEmpty
-          ? storedPeriodicity[0].toUpperCase() + storedPeriodicity.substring(1).toLowerCase()
-          : 'Mensuel';
+      selectedPeriodicity = storedPeriodicity.isNotEmpty ? storedPeriodicity[0].toUpperCase() + storedPeriodicity.substring(1).toLowerCase() : 'Mensuel';
     }
-
     final List<String> periodicities = ['Mensuel', 'Bimensuel', 'Trimestriel', 'Semestriel', 'Annuel', 'Ponctuel'];
-
-    final TextEditingController reasonController = TextEditingController(text: commitment['reason'] ?? '');
-    final bool isMissionnaire = (commitment['service_name'] == 'Missionnaire');
-    final String itemName = commitment['item_name'];
-
+    final reasonController = TextEditingController(text: commitment['reason'] ?? '');
+    final isMissionnaire = (commitment['service_name'] == 'Missionnaire');
+    final itemName = commitment['item_name'];
     bool showReasonField = !isMissionnaire && (
         (commitment['reason'] != null && commitment['reason'].isNotEmpty) ||
         (commitment['service_name'] == 'IIFM' && (itemName == 'Fonctionnement' || itemName == 'infrastructures')) ||
         (commitment['service_name'] == 'Zones' && (itemName == 'Zone de Daloa' || itemName == 'Zone de Bouaké')) ||
         (commitment['service_name'] == 'Équipements' && itemName == 'Achat matériel divers') ||
-        (commitment['reason']?.isNotEmpty ?? false)
-    );
-
+        (commitment['reason']?.isNotEmpty ?? false));
     await showDialog(
       context: context,
       builder: (ctx) {
@@ -611,45 +695,19 @@ class _HomeScreenState extends State<HomeScreen> {
           builder: (context, setStateModal) {
             bool isDonPonctuel = (selectedPeriodicity == 'Ponctuel');
             return AlertDialog(
-              title: Text('Modifier l\'engagement'),
+              title: const Text('Modifier l\'engagement'),
               content: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Align(
-                    alignment: Alignment.centerLeft,
-                    child: Text(
-                      '${commitment['service_name']}',
-                      style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
-                    ),
-                  ),
+                  Align(alignment: Alignment.centerLeft, child: Text('${commitment['service_name']}', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16))),
                   const SizedBox(height: 4),
-                  Align(
-                    alignment: Alignment.centerLeft,
-                    child: Text(
-                      isMissionnaire ? 'Soutenir un missionnaire' : itemName,
-                      style: const TextStyle(fontStyle: FontStyle.italic),
-                    ),
-                  ),
+                  Align(alignment: Alignment.centerLeft, child: Text(isMissionnaire ? 'Soutenir un missionnaire' : itemName, style: const TextStyle(fontStyle: FontStyle.italic))),
                   const SizedBox(height: 16),
-                  TextField(
-                    controller: amountController,
-                    decoration: const InputDecoration(labelText: 'Montant (FCFA)'),
-                    keyboardType: TextInputType.number,
-                  ),
+                  TextField(controller: amountController, decoration: const InputDecoration(labelText: 'Montant (FCFA)'), keyboardType: TextInputType.number),
                   const SizedBox(height: 12),
-                  if (!isDonPonctuel)
-                    TextField(
-                      controller: dayController,
-                      decoration: const InputDecoration(labelText: 'Jour du mois (1-31)'),
-                      keyboardType: TextInputType.number,
-                    ),
+                  if (!isDonPonctuel) TextField(controller: dayController, decoration: const InputDecoration(labelText: 'Jour du mois (1-31)'), keyboardType: TextInputType.number),
                   const SizedBox(height: 12),
-                  TextField(
-                    controller: reasonController,
-                    decoration: InputDecoration(
-                      labelText: isMissionnaire ? 'Nom et Prénoms du missionnaire' : 'Objet du don',
-                    ),
-                  ),
+                  TextField(controller: reasonController, decoration: InputDecoration(labelText: isMissionnaire ? 'Nom et Prénoms du missionnaire' : 'Objet du don')),
                   const SizedBox(height: 12),
                   DropdownButtonFormField<String>(
                     value: selectedPeriodicity,
@@ -658,13 +716,7 @@ class _HomeScreenState extends State<HomeScreen> {
                     onChanged: (v) => setStateModal(() => selectedPeriodicity = v!),
                   ),
                   const SizedBox(height: 12),
-                  Align(
-                    alignment: Alignment.centerLeft,
-                    child: Text(
-                      'Date d\'enregistrement : ${_formatDate(commitment['createdAt'])}',
-                      style: const TextStyle(fontSize: 12, color: Colors.grey),
-                    ),
-                  ),
+                  Align(alignment: Alignment.centerLeft, child: Text('Date d\'enregistrement : ${_formatDate(commitment['createdAt'])}', style: const TextStyle(fontSize: 12, color: Colors.grey))),
                 ],
               ),
               actions: [
@@ -683,7 +735,7 @@ class _HomeScreenState extends State<HomeScreen> {
                     }
                     final token = await AuthService.getToken();
                     if (token == null) return;
-                    final Map<String, dynamic> body = {
+                    final body = <String, dynamic>{
                       'amount': newAmount,
                       'day_of_month': newDay,
                       'periodicity': _mapPeriodicityToBackend(selectedPeriodicity),
@@ -692,9 +744,7 @@ class _HomeScreenState extends State<HomeScreen> {
                       body['item_name'] = reasonController.text.trim();
                     } else {
                       final newReason = reasonController.text.trim();
-                      if (newReason.isNotEmpty) {
-                        body['reason'] = newReason;
-                      }
+                      if (newReason.isNotEmpty) body['reason'] = newReason;
                     }
                     final response = await http.put(
                       Uri.parse('$_baseUrl/api/auth/service-commitments/${commitment['id']}'),
@@ -759,46 +809,18 @@ class _HomeScreenState extends State<HomeScreen> {
   void _navigateToService(String service) async {
     List<String> items = [];
     switch (service) {
-      case 'Missionnaire':
-        _showMissionnaireModal();
-        return;
-      case 'Champs':
-        items = ['Koyaka', 'Koulango', 'Lobi', 'Lorhon', 'Engagement pour tous les champs.'];
-        break;
-      case 'Projets':
-        items = ['Siege de l’AMI', 'Bâtiment Noé', 'Bâtiment 5 Pains et 2 Poissons'];
-        break;
-      case 'Activités':
-        items = ['ECOMIN', 'RHEMA', 'VSD dans Sa présence', 'Priez le Maître', 'Levez les yeux', 'La classe de disciples', 'L’école de mariage ECOMA'];
-        break;
-      case 'Zones':
-        items = ['Zone de Daloa', 'Zone de Bouake'];
-        break;
-      case 'Départements':
-        items = ['Administration', 'Recherche', 'Finance', 'Mobilisation', 'Media'];
-        break;
-      case 'Social':
-        items = [
-          'Santé des missionnaires',
-          'Scolarité des enfants de missionnaires',
-          'Retraite des missionnaires',
-          'Renforcement de capacités des missionnaires'
-        ];
-        break;
-      case 'IIFM':
-        items = ['scolarité des étudiants', 'infrastructures', 'Fonctionnement'];
-        break;
-      case 'Équipements':
-        items = ['Achat ordinateur', 'Achat véhicules', 'Achat caméra', 'Achat matériel divers'];
-        break;
-      default:
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Page $service en construction')));
-        return;
+      case 'Missionnaire': _showMissionnaireModal(); return;
+      case 'Champs': items = ['Koyaka', 'Koulango', 'Lobi', 'Lorhon', 'Engagement pour tous les champs.']; break;
+      case 'Projets': items = ['Siege de l’AMI', 'Bâtiment Noé', 'Bâtiment 5 Pains et 2 Poissons']; break;
+      case 'Activités': items = ['ECOMIN', 'RHEMA', 'VSD dans Sa présence', 'Priez le Maître', 'Levez les yeux', 'La classe de disciples', 'L’école de mariage ECOMA']; break;
+      case 'Zones': items = ['Zone de Daloa', 'Zone de Bouake']; break;
+      case 'Départements': items = ['Administration', 'Recherche', 'Finance', 'Mobilisation', 'Media']; break;
+      case 'Social': items = ['Santé des missionnaires', 'Scolarité des enfants de missionnaires', 'Retraite des missionnaires', 'Renforcement de capacités des missionnaires']; break;
+      case 'IIFM': items = ['scolarité des étudiants', 'infrastructures', 'Fonctionnement']; break;
+      case 'Équipements': items = ['Achat ordinateur', 'Achat véhicules', 'Achat caméra', 'Achat matériel divers']; break;
+      default: ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Page $service en construction'))); return;
     }
-    await Navigator.push(
-      context,
-      MaterialPageRoute(builder: (_) => ServiceListScreen(title: service, items: items)),
-    );
+    await Navigator.push(context, MaterialPageRoute(builder: (_) => ServiceListScreen(title: service, items: items)));
     await _fetchServiceCommitments();
     setState(() {});
   }
@@ -810,27 +832,15 @@ class _HomeScreenState extends State<HomeScreen> {
       appBar: AppBar(
         elevation: 2,
         backgroundColor: const Color(0xFFD4A017),
-        leading: IconButton(
-          icon: const Icon(Icons.menu, color: Colors.white),
-          onPressed: () => ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Menu à venir'))),
-        ),
+        leading: IconButton(onPressed: () => ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Menu à venir'))), icon: const Icon(Icons.menu, color: Colors.white)),
         title: const Text('Accueil', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600)),
         centerTitle: true,
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.more_vert, color: Colors.white),
-            onPressed: () => ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Options à venir'))),
-          ),
-        ],
+        actions: [IconButton(onPressed: () => ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Options à venir'))), icon: const Icon(Icons.more_vert, color: Colors.white))],
         bottom: PreferredSize(
           preferredSize: const Size.fromHeight(50),
           child: Container(
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-            child: const Text(
-              '« Que votre lumière brille devant les hommes » — Matthieu 5:16',
-              style: TextStyle(color: Colors.white, fontSize: 14, fontStyle: FontStyle.italic),
-              textAlign: TextAlign.center,
-            ),
+            child: const Text('« Que votre lumière brille devant les hommes » — Matthieu 5:16', style: TextStyle(color: Colors.white, fontSize: 14, fontStyle: FontStyle.italic), textAlign: TextAlign.center),
           ),
         ),
       ),
@@ -840,23 +850,11 @@ class _HomeScreenState extends State<HomeScreen> {
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
               child: Column(
                 children: [
-                  // Logo et identité
                   Center(
                     child: Container(
-                      width: 80,
-                      height: 80,
-                      decoration: BoxDecoration(
-                        color: Colors.white,
-                        borderRadius: BorderRadius.circular(20),
-                        border: Border.all(color: const Color(0xFFD4A017), width: 1.5),
-                        boxShadow: [
-                          BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 8, offset: const Offset(0, 4)),
-                        ],
-                      ),
-                      child: ClipRRect(
-                        borderRadius: BorderRadius.circular(18),
-                        child: Image.asset('assets/images/logo.png', fit: BoxFit.cover),
-                      ),
+                      width: 80, height: 80,
+                      decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(20), border: Border.all(color: const Color(0xFFD4A017), width: 1.5), boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 8, offset: const Offset(0, 4))]),
+                      child: ClipRRect(borderRadius: BorderRadius.circular(18), child: Image.asset('assets/images/logo.png', fit: BoxFit.cover)),
                     ),
                   ),
                   const SizedBox(height: 12),
@@ -867,50 +865,25 @@ class _HomeScreenState extends State<HomeScreen> {
                       padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 16),
                       child: Column(
                         children: [
-                          const Text(
-                            'ACTION MISSIONNAIRE INTERAFRICAINE',
-                            style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: Color(0xFF5D3A1A)),
-                            textAlign: TextAlign.center,
-                          ),
+                          const Text('ACTION MISSIONNAIRE INTERAFRICAINE', style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: Color(0xFF5D3A1A)), textAlign: TextAlign.center),
                           const SizedBox(height: 4),
-                          Text(
-                            'Côte d\'Ivoire',
-                            style: TextStyle(fontSize: 12, color: Colors.grey[700]),
-                            textAlign: TextAlign.center,
-                          ),
+                          Text('Côte d\'Ivoire', style: TextStyle(fontSize: 12, color: Colors.grey[700]), textAlign: TextAlign.center),
                         ],
                       ),
                     ),
                   ),
                   const SizedBox(height: 20),
-
-                  // Profil partenaire
                   Card(
                     elevation: 2,
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
                     child: Padding(
                       padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          const Icon(Icons.person, color: Color(0xFFD4A017)),
-                          const SizedBox(width: 8),
-                          Text(_fullName, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-                        ],
-                      ),
+                      child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [const Icon(Icons.person, color: Color(0xFFD4A017)), const SizedBox(width: 8), Text(_fullName, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold))]),
                     ),
                   ),
-                  const SizedBox(height: 16),
-
-                  // Le bouton Offrande Missionnaire a été SUPPRIMÉ
-
                   const SizedBox(height: 20),
-
-                  // Fonctionnement de l'AMI
                   _buildCommitmentCard(),
                   const SizedBox(height: 24),
-
-                  // Grille des services
                   Card(
                     elevation: 2,
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
@@ -945,31 +918,44 @@ class _HomeScreenState extends State<HomeScreen> {
                   ),
                   const SizedBox(height: 24),
 
-                  // Historique des engagements (corrigé : bouton Honorer direct)
-                  const Text(
-                    'Historique des engagements',
-                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Color(0xFF5D3A1A)),
+                  // Cadran Structures et organisme
+                  Card(
+                    elevation: 2,
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                    child: Padding(
+                      padding: const EdgeInsets.all(12),
+                      child: Column(
+                        children: [
+                          const Text('Structures et organisme', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Color(0xFF5D3A1A))),
+                          const SizedBox(height: 8),
+                          const Text('Faites parvenir les dons de votre structure, organisme ou cellule à l’AMI Côte d’Ivoire', style: TextStyle(fontSize: 12, color: Colors.grey), textAlign: TextAlign.center),
+                          const SizedBox(height: 12),
+                          ElevatedButton(
+                            onPressed: _showStructureDonationModal,
+                            style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFFD4A017), foregroundColor: Colors.white, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(30))),
+                            child: const Padding(
+                              padding: EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                              child: Text('Effectuer un don', style: TextStyle(fontSize: 16)),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
                   ),
+                  const SizedBox(height: 24),
+
+                  const Text('Historique des engagements', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Color(0xFF5D3A1A))),
                   const SizedBox(height: 8),
                   _recurringDonations.isEmpty && _serviceCommitments.isEmpty
-                      ? const Card(
-                          child: Padding(
-                            padding: EdgeInsets.all(12),
-                            child: Text('Aucun engagement honoré pour le moment'),
-                          ),
-                        )
+                      ? const Card(child: Padding(padding: EdgeInsets.all(12), child: Text('Aucun engagement honoré pour le moment')))
                       : Column(
                           children: [
                             if (_recurringDonations.isNotEmpty) ...[
                               const Text('Dons récurrents', style: TextStyle(fontWeight: FontWeight.bold)),
                               ..._recurringDonations.map((d) => Card(
                                 margin: const EdgeInsets.only(bottom: 8),
-                                child: ListTile(
-                                  title: Text('${d['amount']} FCFA'),
-                                  subtitle: Text('${_formatDate(d['createdAt'])} - ${d['status']}'),
-                                  trailing: Chip(label: Text(d['status'])),
-                                ),
-                              )).toList(),
+                                child: ListTile(title: Text('${d['amount']} FCFA'), subtitle: Text('${_formatDate(d['createdAt'])} - ${d['status']}'), trailing: Chip(label: Text(d['status']))),
+                              )),
                             ],
                             if (_serviceCommitments.isNotEmpty) ...[
                               const SizedBox(height: 12),
@@ -980,75 +966,45 @@ class _HomeScreenState extends State<HomeScreen> {
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
                                     ListTile(
-                                      title: Text(
-                                        '${c['service_name']} - ${c['item_name']}',
-                                        style: const TextStyle(fontWeight: FontWeight.bold),
-                                      ),
-                                      subtitle: Column(
-                                        crossAxisAlignment: CrossAxisAlignment.start,
-                                        children: [
-                                          Text('Montant : ${c['amount']} FCFA'),
-                                          Text('Jour : ${c['day_of_month'] ?? '-'}'),
-                                          if (c['reason'] != null && c['reason'].isNotEmpty)
-                                            Text('Objet : ${c['reason']}'),
-                                          Text('Périodicité : ${c['periodicity']}'),
-                                          Text('Date : ${_formatDate(c['createdAt'])}', style: const TextStyle(fontSize: 12)),
-                                        ],
-                                      ),
+                                      title: Text('${c['service_name']} - ${c['item_name']}', style: const TextStyle(fontWeight: FontWeight.bold)),
+                                      subtitle: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                                        Text('Montant : ${c['amount']} FCFA'),
+                                        Text('Jour : ${c['day_of_month'] ?? '-'}'),
+                                        if (c['reason'] != null && c['reason'].isNotEmpty) Text('Objet : ${c['reason']}'),
+                                        Text('Périodicité : ${c['periodicity']}'),
+                                        Text('Date : ${_formatDate(c['createdAt'])}', style: const TextStyle(fontSize: 12)),
+                                      ]),
                                     ),
                                     Padding(
                                       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                                       child: Row(
                                         mainAxisAlignment: MainAxisAlignment.center,
                                         children: [
-                                          ElevatedButton(
-                                            onPressed: () => _showDonationModal(
-                                              title: c['item_name'],
-                                              projectId: _generalProjectId,
-                                              presetAmount: (c['amount'] as num).toDouble(),
-                                            ),
-                                            style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFFD4A017)),
-                                            child: const Text('Honorer'),
-                                          ),
+                                          ElevatedButton(onPressed: () => _showDonationModal(title: c['item_name'], projectId: _generalProjectId, presetAmount: (c['amount'] as num).toDouble()), style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFFD4A017)), child: const Text('Honorer')),
                                           const SizedBox(width: 12),
-                                          OutlinedButton(
-                                            onPressed: () => _editServiceCommitment(c),
-                                            child: const Text('Modifier'),
-                                          ),
+                                          OutlinedButton(onPressed: () => _editServiceCommitment(c), child: const Text('Modifier')),
                                           const SizedBox(width: 12),
-                                          OutlinedButton(
-                                            onPressed: () => _deleteServiceCommitment(c),
-                                            style: OutlinedButton.styleFrom(foregroundColor: Colors.red),
-                                            child: const Text('Supprimer'),
-                                          ),
+                                          OutlinedButton(onPressed: () => _deleteServiceCommitment(c), style: OutlinedButton.styleFrom(foregroundColor: Colors.red), child: const Text('Supprimer')),
                                         ],
                                       ),
                                     ),
                                   ],
                                 ),
-                              )).toList(),
+                              )),
                             ],
                           ],
                         ),
-
                   const SizedBox(height: 16),
-
-                  // Nouveau bouton Reçu de Paiement
                   Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 16),
                     child: ElevatedButton.icon(
                       onPressed: _showPaymentReceipt,
                       icon: const Icon(Icons.receipt_long),
                       label: const Text('Reçu de paiement', style: TextStyle(fontSize: 18)),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: const Color(0xFFD4A017),
-                        foregroundColor: Colors.white,
-                        minimumSize: const Size(double.infinity, 50),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(30)),
-                      ),
+                      style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFFD4A017), foregroundColor: Colors.white, minimumSize: const Size(double.infinity, 50), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(30))),
                     ),
                   ),
-                  const SizedBox(height: 20),
+                  const SizedBox(height: 80),
                 ],
               ),
             ),
@@ -1062,30 +1018,9 @@ class _HomeScreenState extends State<HomeScreen> {
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Container(
-            width: 60,
-            height: 60,
-            decoration: BoxDecoration(
-              color: bgColor,
-              shape: BoxShape.circle,
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withOpacity(0.05),
-                  blurRadius: 4,
-                  offset: const Offset(0, 2),
-                ),
-              ],
-            ),
-            child: Icon(icon, size: 30, color: const Color(0xFF5D3A1A)),
-          ),
+          Container(width: 60, height: 60, decoration: BoxDecoration(color: bgColor, shape: BoxShape.circle, boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 4, offset: const Offset(0, 2))]), child: Icon(icon, size: 30, color: const Color(0xFF5D3A1A))),
           const SizedBox(height: 8),
-          Text(
-            title,
-            style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w500, color: Color(0xFF5D3A1A)),
-            textAlign: TextAlign.center,
-            softWrap: false,
-            overflow: TextOverflow.visible,
-          ),
+          Text(title, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w500, color: Color(0xFF5D3A1A)), textAlign: TextAlign.center, softWrap: false, overflow: TextOverflow.visible),
         ],
       ),
     );
@@ -1102,11 +1037,7 @@ class _HomeScreenState extends State<HomeScreen> {
             children: [
               const Text('Fonctionnement de l\'AMI', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w500)),
               const SizedBox(height: 8),
-              ElevatedButton(
-                onPressed: () => _showCommitmentModal(),
-                style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFFD4A017)),
-                child: const Text('Ajouter un engagement'),
-              ),
+              ElevatedButton(onPressed: () => _showCommitmentModal(), style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFFD4A017)), child: const Text('Ajouter un engagement')),
             ],
           ),
         ),
@@ -1132,26 +1063,21 @@ class _HomeScreenState extends State<HomeScreen> {
             Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                ElevatedButton(
+                TextButton(
                   onPressed: () => _showCommitmentModal(isEditing: true),
-                  style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFFD4A017)),
+                  style: TextButton.styleFrom(foregroundColor: Colors.blue),
                   child: const Text('Modifier'),
                 ),
                 const SizedBox(width: 12),
                 ElevatedButton(
-                  onPressed: () => _showDonationModal(
-                    title: 'Fonctionnement de l\'AMI',
-                    projectId: _generalProjectId,
-                    presetAmount: amountValue,
-                  ),
+                  onPressed: () => _showDonationModal(title: 'Fonctionnement de l\'AMI', projectId: _generalProjectId, presetAmount: amountValue),
                   style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFFD4A017)),
                   child: const Text('Honorer'),
                 ),
                 const SizedBox(width: 12),
-                // Nouveau bouton Supprimer
-                ElevatedButton(
+                TextButton(
                   onPressed: _deleteCommitment,
-                  style: ElevatedButton.styleFrom(backgroundColor: Colors.red, foregroundColor: Colors.white),
+                  style: TextButton.styleFrom(foregroundColor: Colors.red),
                   child: const Text('Supprimer'),
                 ),
               ],
