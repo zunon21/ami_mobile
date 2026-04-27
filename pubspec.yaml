@@ -11,9 +11,9 @@ dependencies:
   flutter:
     sdk: flutter
   cupertino_icons: ^1.0.8
-  flutter_native_splash: ^2.4.7
+  flutter_native_splash: 2.4.4   # ← modifié (était ^2.4.7)
   http: ^1.6.0
-  shared_preferences: 2.4.0   # ← modifié (était ^2.5.5)
+  shared_preferences: 2.4.0
   google_fonts: ^6.2.1
 
 dev_dependencies:
