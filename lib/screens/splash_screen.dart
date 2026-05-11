@@ -1,5 +1,5 @@
-﻿import 'package:flutter/material.dart';
-import 'package:flutter_native_splash/flutter_native_splash.dart';
+import 'dart:async';
+import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../services/auth_service.dart';
 import 'onboarding_screen.dart';
@@ -15,23 +15,39 @@ class _SplashScreenState extends State<SplashScreen> {
   @override
   void initState() {
     super.initState();
-    _checkFirstSeen();
+    _checkLoginStatus();
   }
 
-  Future<void> _checkFirstSeen() async {
-    await Future.delayed(const Duration(seconds: 2));
-    FlutterNativeSplash.remove();
+  Future<void> _checkLoginStatus() async {
+    // Attendre 3 secondes pour l'affichage du splash (laisse le temps à l'écran suivant de se préparer)
+    await Future.delayed(Duration(seconds: 3));
 
+    // Vérifier si l'utilisateur a déjà vu l'onboarding
     final prefs = await SharedPreferences.getInstance();
-    final onboardingSeen = prefs.getBool('onboarding_completed') ?? false;
-    final tokenValid = await AuthService.isTokenValid();
+    final bool onboardingSeen = prefs.getBool('onboarding_seen') ?? false;
+
+    // Vérifier si l'utilisateur est connecté
+    final token = await AuthService.getToken();
+    final bool isLoggedIn = token != null && await AuthService.isTokenValid();
 
     if (!onboardingSeen) {
-      Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => OnboardingScreen()));
-    } else if (tokenValid) {
-      Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => HomeScreen()));
+      // Première ouverture → afficher l'onboarding
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(builder: (_) => OnboardingScreen()),
+      );
+    } else if (isLoggedIn) {
+      // Déjà connecté → aller directement à l'accueil
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(builder: (_) => HomeScreen()),
+      );
     } else {
-      Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => LoginScreen()));
+      // Non connecté → aller à l'écran de connexion
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(builder: (_) => LoginScreen()),
+      );
     }
   }
 
@@ -45,35 +61,7 @@ class _SplashScreenState extends State<SplashScreen> {
             fit: BoxFit.cover,
           ),
         ),
-        child: Stack(
-          children: [
-            Positioned(
-              top: 60,
-              left: 20,
-              child: Image.asset('assets/images/logo.png', width: 100, height: 100),
-            ),
-            Center(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  const SizedBox(height: 80),
-                  Text(
-                    'Partenaire\nDe L\'AMI',
-                    textAlign: TextAlign.center,
-                    style: TextStyle(
-                      fontSize: 32,
-                      fontWeight: FontWeight.bold,
-                      color: const Color(0xFFD4A017),
-                      shadows: [Shadow(blurRadius: 8, color: Colors.black54, offset: Offset(2, 2))],
-                    ),
-                  ),
-                  const SizedBox(height: 20),
-                  CircularProgressIndicator(color: const Color(0xFFD4A017)),
-                ],
-              ),
-            ),
-          ],
-        ),
+        // Plus aucun logo affiché
       ),
     );
   }

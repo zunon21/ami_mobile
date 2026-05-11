@@ -27,7 +27,6 @@ class _HomeScreenState extends State<HomeScreen> {
   final TextEditingController _dayController = TextEditingController();
   String _selectedPeriodicity = 'Mensuel';
 
-  // Liste des périodicités pour le fonctionnement de l'AMI (ajout de 'Ponctuel')
   final List<String> _periodicities = ['Mensuel', 'Bimensuel', 'Trimestriel', 'Semestriel', 'Annuel', 'Ponctuel'];
 
   String _mapPeriodicityToBackend(String periodicity) {
@@ -63,7 +62,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
   Future<void> _fetchUserInfo() async {
     final user = await AuthService.getUserInfo();
-    if (user != null && user['full_name'] != null) {
+    if (user != null && user['full_name'] != null && user['full_name'].toString().isNotEmpty) {
       setState(() => _fullName = user['full_name']);
     } else {
       setState(() => _fullName = 'Partenaire');
@@ -182,7 +181,6 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  // Formulaire pour les dons de structures / organismes
   void _showStructureDonationModal() {
     final TextEditingController orgNameController = TextEditingController();
     final TextEditingController amountController = TextEditingController();
@@ -230,12 +228,12 @@ class _HomeScreenState extends State<HomeScreen> {
               const SizedBox(height: 12),
               TextField(
                 controller: destinationController,
-                decoration: const InputDecoration(labelText: 'Destinations des fonds (optionnel)', prefixIcon: Icon(Icons.place)),
+                decoration: const InputDecoration(labelText: 'Destinations des fonds', prefixIcon: Icon(Icons.place)),
               ),
               const SizedBox(height: 12),
               TextField(
                 controller: reasonController,
-                decoration: const InputDecoration(labelText: 'Motifs du don (optionnel)', prefixIcon: Icon(Icons.edit)),
+                decoration: const InputDecoration(labelText: 'Motifs du don', prefixIcon: Icon(Icons.edit)),
               ),
               const SizedBox(height: 24),
               ElevatedButton(
@@ -475,12 +473,11 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  // Formulaire pour Missionnaire avec ajout du champ "Motifs du don"
   void _showMissionnaireModal() {
     final TextEditingController amountController = TextEditingController();
     final TextEditingController dayController = TextEditingController();
     final TextEditingController missionaryNameController = TextEditingController();
-    final TextEditingController reasonController = TextEditingController(); // Ajouté
+    final TextEditingController reasonController = TextEditingController();
     String selectedPeriodicity = 'Mensuel';
     final List<String> periodicities = ['Mensuel', 'Bimensuel', 'Trimestriel', 'Semestriel', 'Annuel', 'Ponctuel'];
 
@@ -515,7 +512,7 @@ class _HomeScreenState extends State<HomeScreen> {
                     ]),
                   TextField(controller: missionaryNameController, decoration: const InputDecoration(labelText: 'Nom et Prénoms du missionnaire', prefixIcon: Icon(Icons.person))),
                   const SizedBox(height: 12),
-                  TextField(controller: reasonController, decoration: const InputDecoration(labelText: 'Motifs du don (optionnel)', prefixIcon: Icon(Icons.edit))),
+                  TextField(controller: reasonController, decoration: const InputDecoration(labelText: 'Motifs du don', prefixIcon: Icon(Icons.edit))),
                   const SizedBox(height: 12),
                   DropdownButtonFormField<String>(
                     value: selectedPeriodicity,
@@ -532,7 +529,7 @@ class _HomeScreenState extends State<HomeScreen> {
                             amountController,
                             dayController,
                             missionaryNameController,
-                            reasonController, // Ajouté
+                            reasonController,
                             selectedPeriodicity,
                             isDonPonctuel,
                           ),
@@ -554,7 +551,7 @@ class _HomeScreenState extends State<HomeScreen> {
     TextEditingController amountController,
     TextEditingController dayController,
     TextEditingController missionaryNameController,
-    TextEditingController reasonController, // Ajouté
+    TextEditingController reasonController,
     String periodicity,
     bool isDonPonctuel,
   ) async {
@@ -562,7 +559,7 @@ class _HomeScreenState extends State<HomeScreen> {
     setState(() => _isSubmittingMission = true);
     final amount = int.tryParse(amountController.text.trim());
     final name = missionaryNameController.text.trim();
-    final motive = reasonController.text.trim(); // Ajouté
+    final motive = reasonController.text.trim();
     if (amount == null || amount <= 0) {
       ScaffoldMessenger.of(ctx).showSnackBar(const SnackBar(content: Text('Montant invalide')));
       setState(() => _isSubmittingMission = false);
@@ -679,15 +676,13 @@ class _HomeScreenState extends State<HomeScreen> {
       selectedPeriodicity = storedPeriodicity.isNotEmpty ? storedPeriodicity[0].toUpperCase() + storedPeriodicity.substring(1).toLowerCase() : 'Mensuel';
     }
     final List<String> periodicities = ['Mensuel', 'Bimensuel', 'Trimestriel', 'Semestriel', 'Annuel', 'Ponctuel'];
-    final reasonController = TextEditingController(text: commitment['reason'] ?? '');
+    
     final isMissionnaire = (commitment['service_name'] == 'Missionnaire');
+    final TextEditingController nameController = TextEditingController(text: isMissionnaire ? (commitment['item_name'] ?? '') : '');
+    final TextEditingController motiveController = TextEditingController(text: commitment['reason'] ?? '');
+    final TextEditingController reasonController = TextEditingController(text: isMissionnaire ? '' : (commitment['reason'] ?? ''));
     final itemName = commitment['item_name'];
-    bool showReasonField = !isMissionnaire && (
-        (commitment['reason'] != null && commitment['reason'].isNotEmpty) ||
-        (commitment['service_name'] == 'IIFM' && (itemName == 'Fonctionnement' || itemName == 'infrastructures')) ||
-        (commitment['service_name'] == 'Zones' && (itemName == 'Zone de Daloa' || itemName == 'Zone de Bouaké')) ||
-        (commitment['service_name'] == 'Équipements' && itemName == 'Achat matériel divers') ||
-        (commitment['reason']?.isNotEmpty ?? false));
+    
     await showDialog(
       context: context,
       builder: (ctx) {
@@ -707,8 +702,15 @@ class _HomeScreenState extends State<HomeScreen> {
                   const SizedBox(height: 12),
                   if (!isDonPonctuel) TextField(controller: dayController, decoration: const InputDecoration(labelText: 'Jour du mois (1-31)'), keyboardType: TextInputType.number),
                   const SizedBox(height: 12),
-                  TextField(controller: reasonController, decoration: InputDecoration(labelText: isMissionnaire ? 'Nom et Prénoms du missionnaire' : 'Objet du don')),
-                  const SizedBox(height: 12),
+                  if (isMissionnaire) ...[
+                    TextField(controller: nameController, decoration: const InputDecoration(labelText: 'Nom et Prénoms du missionnaire')),
+                    const SizedBox(height: 12),
+                    TextField(controller: motiveController, decoration: const InputDecoration(labelText: 'Motifs du don')),
+                    const SizedBox(height: 12),
+                  ] else ...[
+                    TextField(controller: reasonController, decoration: const InputDecoration(labelText: 'Objet du don')),
+                    const SizedBox(height: 12),
+                  ],
                   DropdownButtonFormField<String>(
                     value: selectedPeriodicity,
                     decoration: const InputDecoration(labelText: 'Périodicité'),
@@ -741,7 +743,10 @@ class _HomeScreenState extends State<HomeScreen> {
                       'periodicity': _mapPeriodicityToBackend(selectedPeriodicity),
                     };
                     if (isMissionnaire) {
-                      body['item_name'] = reasonController.text.trim();
+                      final newName = nameController.text.trim();
+                      if (newName.isNotEmpty) body['item_name'] = newName;
+                      final newMotive = motiveController.text.trim();
+                      if (newMotive.isNotEmpty) body['reason'] = newMotive;
                     } else {
                       final newReason = reasonController.text.trim();
                       if (newReason.isNotEmpty) body['reason'] = newReason;
@@ -807,207 +812,228 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   void _navigateToService(String service) async {
-    List<String> items = [];
     switch (service) {
       case 'Missionnaire': _showMissionnaireModal(); return;
-      case 'Champs': items = ['Koyaka', 'Koulango', 'Lobi', 'Lorhon', 'Engagement pour tous les champs.']; break;
-      case 'Projets': items = ['Siege de l’AMI', 'Bâtiment Noé', 'Bâtiment 5 Pains et 2 Poissons']; break;
-      case 'Activités': items = ['ECOMIN', 'RHEMA', 'VSD dans Sa présence', 'Priez le Maître', 'Levez les yeux', 'La classe de disciples', 'L’école de mariage ECOMA']; break;
-      case 'Zones': items = ['Zone de Daloa', 'Zone de Bouake']; break;
-      case 'Départements': items = ['Administration', 'Recherche', 'Finance', 'Mobilisation', 'Media']; break;
-      case 'Social': items = ['Santé des missionnaires', 'Scolarité des enfants de missionnaires', 'Retraite des missionnaires', 'Renforcement de capacités des missionnaires']; break;
-      case 'IIFM': items = ['scolarité des étudiants', 'infrastructures', 'Fonctionnement']; break;
-      case 'Équipements': items = ['Achat ordinateur', 'Achat véhicules', 'Achat caméra', 'Achat matériel divers']; break;
-      default: ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Page $service en construction'))); return;
+      case 'Champs':
+      case 'Projets':
+      case 'Départements':
+      case 'IIFM':
+      case 'Zones':
+      case 'Activités':
+      case 'Social':
+      case 'Équipements':
+        await Navigator.push(context, MaterialPageRoute(builder: (_) => ServiceListScreen(categoryName: service)));
+        await _fetchServiceCommitments();
+        setState(() {});
+        break;
+      default:
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Page $service en construction')));
+        return;
     }
-    await Navigator.push(context, MaterialPageRoute(builder: (_) => ServiceListScreen(title: service, items: items)));
-    await _fetchServiceCommitments();
-    setState(() {});
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.white,
+      backgroundColor: Colors.transparent,
       appBar: AppBar(
         elevation: 2,
         backgroundColor: const Color(0xFFD4A017),
-        leading: IconButton(onPressed: () => ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Menu à venir'))), icon: const Icon(Icons.menu, color: Colors.white)),
+        leading: IconButton(
+          icon: const Icon(Icons.menu, color: Colors.white),
+          onPressed: () => ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Menu à venir'))),
+        ),
         title: const Text('Accueil', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600)),
         centerTitle: true,
-        actions: [IconButton(onPressed: () => ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Options à venir'))), icon: const Icon(Icons.more_vert, color: Colors.white))],
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.more_vert, color: Colors.white),
+            onPressed: () => ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Options à venir'))),
+          ),
+        ],
         bottom: PreferredSize(
           preferredSize: const Size.fromHeight(50),
           child: Container(
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-            child: const Text('« Que votre lumière brille devant les hommes » — Matthieu 5:16', style: TextStyle(color: Colors.white, fontSize: 14, fontStyle: FontStyle.italic), textAlign: TextAlign.center),
+            child: const Text(
+              '« Que votre lumière brille devant les hommes » — Matthieu 5:16',
+              style: TextStyle(color: Colors.white, fontSize: 14, fontStyle: FontStyle.italic),
+              textAlign: TextAlign.center,
+            ),
           ),
         ),
       ),
-      body: _isLoading
-          ? const Center(child: CircularProgressIndicator())
-          : SingleChildScrollView(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-              child: Column(
-                children: [
-                  Center(
-                    child: Container(
-                      width: 80, height: 80,
-                      decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(20), border: Border.all(color: const Color(0xFFD4A017), width: 1.5), boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 8, offset: const Offset(0, 4))]),
-                      child: ClipRRect(borderRadius: BorderRadius.circular(18), child: Image.asset('assets/images/logo.png', fit: BoxFit.cover)),
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-                  Card(
-                    elevation: 2,
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-                    child: Padding(
-                      padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 16),
-                      child: Column(
-                        children: [
-                          const Text('ACTION MISSIONNAIRE INTERAFRICAINE', style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: Color(0xFF5D3A1A)), textAlign: TextAlign.center),
-                          const SizedBox(height: 4),
-                          Text('Côte d\'Ivoire', style: TextStyle(fontSize: 12, color: Colors.grey[700]), textAlign: TextAlign.center),
-                        ],
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 20),
-                  Card(
-                    elevation: 2,
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-                    child: Padding(
-                      padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
-                      child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [const Icon(Icons.person, color: Color(0xFFD4A017)), const SizedBox(width: 8), Text(_fullName, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold))]),
-                    ),
-                  ),
-                  const SizedBox(height: 20),
-                  _buildCommitmentCard(),
-                  const SizedBox(height: 24),
-                  Card(
-                    elevation: 2,
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-                    child: Padding(
-                      padding: const EdgeInsets.all(12),
-                      child: Column(
-                        children: [
-                          const Text('Les divers engagements', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Color(0xFF5D3A1A))),
-                          const SizedBox(height: 16),
-                          GridView.count(
-                            shrinkWrap: true,
-                            physics: const NeverScrollableScrollPhysics(),
-                            crossAxisCount: 3,
-                            childAspectRatio: 1.2,
-                            crossAxisSpacing: 12,
-                            mainAxisSpacing: 24,
-                            children: [
-                              _buildServiceCircle('Champs', Icons.church, const Color(0xFFC8E6C9)),
-                              _buildServiceCircle('Missionnaire', Icons.people, const Color(0xFFFFCDD2)),
-                              _buildServiceCircle('Projets', Icons.work, const Color(0xFFBBDEFB)),
-                              _buildServiceCircle('Départements', Icons.apartment, const Color(0xFFB2EBF2)),
-                              _buildServiceCircle('IIFM', Icons.school, const Color(0xFFFFCDD2)),
-                              _buildServiceCircle('Zones', Icons.location_on, const Color(0xFFE1BEE7)),
-                              _buildServiceCircle('Activités', Icons.event, const Color(0xFFFFF9C4)),
-                              _buildServiceCircle('Social', Icons.volunteer_activism, const Color(0xFFC8E6C9)),
-                              _buildServiceCircle('Équipements', Icons.inventory, const Color(0xFFE0E0E0)),
-                            ],
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 24),
-
-                  // Cadran Structures et organisme
-                  Card(
-                    elevation: 2,
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-                    child: Padding(
-                      padding: const EdgeInsets.all(12),
-                      child: Column(
-                        children: [
-                          const Text('Structures et organisme', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Color(0xFF5D3A1A))),
-                          const SizedBox(height: 8),
-                          const Text('Faites parvenir les dons de votre structure, organisme ou cellule à l’AMI Côte d’Ivoire', style: TextStyle(fontSize: 12, color: Colors.grey), textAlign: TextAlign.center),
-                          const SizedBox(height: 12),
-                          ElevatedButton(
-                            onPressed: _showStructureDonationModal,
-                            style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFFD4A017), foregroundColor: Colors.white, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(30))),
-                            child: const Padding(
-                              padding: EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-                              child: Text('Effectuer un don', style: TextStyle(fontSize: 16)),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 24),
-
-                  const Text('Historique des engagements', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Color(0xFF5D3A1A))),
-                  const SizedBox(height: 8),
-                  _recurringDonations.isEmpty && _serviceCommitments.isEmpty
-                      ? const Card(child: Padding(padding: EdgeInsets.all(12), child: Text('Aucun engagement honoré pour le moment')))
-                      : Column(
-                          children: [
-                            if (_recurringDonations.isNotEmpty) ...[
-                              const Text('Dons récurrents', style: TextStyle(fontWeight: FontWeight.bold)),
-                              ..._recurringDonations.map((d) => Card(
-                                margin: const EdgeInsets.only(bottom: 8),
-                                child: ListTile(title: Text('${d['amount']} FCFA'), subtitle: Text('${_formatDate(d['createdAt'])} - ${d['status']}'), trailing: Chip(label: Text(d['status']))),
-                              )),
-                            ],
-                            if (_serviceCommitments.isNotEmpty) ...[
-                              const SizedBox(height: 12),
-                              const Text('Engagements en attente', style: TextStyle(fontWeight: FontWeight.bold)),
-                              ..._serviceCommitments.map((c) => Card(
-                                margin: const EdgeInsets.only(bottom: 8),
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    ListTile(
-                                      title: Text('${c['service_name']} - ${c['item_name']}', style: const TextStyle(fontWeight: FontWeight.bold)),
-                                      subtitle: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                                        Text('Montant : ${c['amount']} FCFA'),
-                                        Text('Jour : ${c['day_of_month'] ?? '-'}'),
-                                        if (c['reason'] != null && c['reason'].isNotEmpty) Text('Objet : ${c['reason']}'),
-                                        Text('Périodicité : ${c['periodicity']}'),
-                                        Text('Date : ${_formatDate(c['createdAt'])}', style: const TextStyle(fontSize: 12)),
-                                      ]),
-                                    ),
-                                    Padding(
-                                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                                      child: Row(
-                                        mainAxisAlignment: MainAxisAlignment.center,
-                                        children: [
-                                          ElevatedButton(onPressed: () => _showDonationModal(title: c['item_name'], projectId: _generalProjectId, presetAmount: (c['amount'] as num).toDouble()), style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFFD4A017)), child: const Text('Honorer')),
-                                          const SizedBox(width: 12),
-                                          OutlinedButton(onPressed: () => _editServiceCommitment(c), child: const Text('Modifier')),
-                                          const SizedBox(width: 12),
-                                          OutlinedButton(onPressed: () => _deleteServiceCommitment(c), style: OutlinedButton.styleFrom(foregroundColor: Colors.red), child: const Text('Supprimer')),
-                                        ],
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              )),
-                            ],
-                          ],
+      body: Container(
+        decoration: const BoxDecoration(
+          image: DecorationImage(
+            image: AssetImage('assets/images/background.png'),
+            fit: BoxFit.cover,
+          ),
+        ),
+        child: SafeArea(
+          child: _isLoading
+              ? const Center(child: CircularProgressIndicator())
+              : SingleChildScrollView(
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                  child: Column(
+                    children: [
+                      Center(
+                        child: Container(
+                          width: 80, height: 80,
+                          decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(20), border: Border.all(color: const Color(0xFFD4A017), width: 1.5), boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 8, offset: const Offset(0, 4))]),
+                          child: ClipRRect(borderRadius: BorderRadius.circular(18), child: Image.asset('assets/images/logo.png', fit: BoxFit.cover)),
                         ),
-                  const SizedBox(height: 16),
-                  Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 16),
-                    child: ElevatedButton.icon(
-                      onPressed: _showPaymentReceipt,
-                      icon: const Icon(Icons.receipt_long),
-                      label: const Text('Reçu de paiement', style: TextStyle(fontSize: 18)),
-                      style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFFD4A017), foregroundColor: Colors.white, minimumSize: const Size(double.infinity, 50), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(30))),
-                    ),
+                      ),
+                      const SizedBox(height: 12),
+                      Card(
+                        elevation: 2,
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 16),
+                          child: Column(
+                            children: [
+                              const Text('ACTION MISSIONNAIRE INTERAFRICAINE', style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: Color(0xFF5D3A1A)), textAlign: TextAlign.center),
+                              const SizedBox(height: 4),
+                              Text('Côte d\'Ivoire', style: TextStyle(fontSize: 12, color: Colors.grey[700]), textAlign: TextAlign.center),
+                            ],
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 20),
+                      Card(
+                        elevation: 2,
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
+                          child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [const Icon(Icons.person, color: Color(0xFFD4A017)), const SizedBox(width: 8), Text(_fullName, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold))]),
+                        ),
+                      ),
+                      const SizedBox(height: 20),
+                      _buildCommitmentCard(),
+                      const SizedBox(height: 24),
+                      Card(
+                        elevation: 2,
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                        child: Padding(
+                          padding: const EdgeInsets.all(12),
+                          child: Column(
+                            children: [
+                              const Text('Les divers engagements', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Color(0xFF5D3A1A))),
+                              const SizedBox(height: 16),
+                              GridView.count(
+                                shrinkWrap: true,
+                                physics: const NeverScrollableScrollPhysics(),
+                                crossAxisCount: 3,
+                                childAspectRatio: 1.2,
+                                crossAxisSpacing: 12,
+                                mainAxisSpacing: 24,
+                                children: [
+                                  _buildServiceCircle('Champs', Icons.church, const Color(0xFFC8E6C9)),
+                                  _buildServiceCircle('Missionnaire', Icons.people, const Color(0xFFFFCDD2)),
+                                  _buildServiceCircle('Projets', Icons.work, const Color(0xFFBBDEFB)),
+                                  _buildServiceCircle('Départements', Icons.apartment, const Color(0xFFB2EBF2)),
+                                  _buildServiceCircle('IIFM', Icons.school, const Color(0xFFFFCDD2)),
+                                  _buildServiceCircle('Zones', Icons.location_on, const Color(0xFFE1BEE7)),
+                                  _buildServiceCircle('Activités', Icons.event, const Color(0xFFFFF9C4)),
+                                  _buildServiceCircle('Social', Icons.volunteer_activism, const Color(0xFFC8E6C9)),
+                                  _buildServiceCircle('Équipements', Icons.inventory, const Color(0xFFE0E0E0)),
+                                ],
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 24),
+                      Card(
+                        elevation: 2,
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                        child: Padding(
+                          padding: const EdgeInsets.all(12),
+                          child: Column(
+                            children: [
+                              const Text('Structures et organisme', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Color(0xFF5D3A1A))),
+                              const SizedBox(height: 8),
+                              const Text('Faites parvenir les dons de votre structure, organisme ou cellule à l’AMI Côte d’Ivoire', style: TextStyle(fontSize: 12, color: Colors.grey), textAlign: TextAlign.center),
+                              const SizedBox(height: 12),
+                              ElevatedButton(
+                                onPressed: _showStructureDonationModal,
+                                style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFFD4A017), foregroundColor: Colors.white, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(30))),
+                                child: const Padding(
+                                  padding: EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                                  child: Text('Effectuer un don', style: TextStyle(fontSize: 16)),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 24),
+                      const Text('Historique des engagements', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Color(0xFF5D3A1A))),
+                      const SizedBox(height: 8),
+                      _recurringDonations.isEmpty && _serviceCommitments.isEmpty
+                          ? const Card(child: Padding(padding: EdgeInsets.all(12), child: Text('Aucun engagement honoré pour le moment')))
+                          : Column(
+                              children: [
+                                if (_recurringDonations.isNotEmpty) ...[
+                                  const Text('Dons récurrents', style: TextStyle(fontWeight: FontWeight.bold)),
+                                  ..._recurringDonations.map((d) => Card(
+                                    margin: const EdgeInsets.only(bottom: 8),
+                                    child: ListTile(title: Text('${d['amount']} FCFA'), subtitle: Text('${_formatDate(d['createdAt'])} - ${d['status']}'), trailing: Chip(label: Text(d['status']))),
+                                  )),
+                                ],
+                                if (_serviceCommitments.isNotEmpty) ...[
+                                  const SizedBox(height: 12),
+                                  const Text('Engagements en attente', style: TextStyle(fontWeight: FontWeight.bold)),
+                                  ..._serviceCommitments.map((c) => Card(
+                                    margin: const EdgeInsets.only(bottom: 8),
+                                    child: Column(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      children: [
+                                        ListTile(
+                                          title: Text('${c['service_name']} - ${c['item_name']}', style: const TextStyle(fontWeight: FontWeight.bold)),
+                                          subtitle: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                                            Text('Montant : ${c['amount']} FCFA'),
+                                            Text('Jour : ${c['day_of_month'] ?? '-'}'),
+                                            if (c['reason'] != null && c['reason'].isNotEmpty) Text('Objet : ${c['reason']}'),
+                                            Text('Périodicité : ${c['periodicity']}'),
+                                            Text('Date : ${_formatDate(c['createdAt'])}', style: const TextStyle(fontSize: 12)),
+                                          ]),
+                                        ),
+                                        Padding(
+                                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                                          child: Row(
+                                            mainAxisAlignment: MainAxisAlignment.center,
+                                            children: [
+                                              OutlinedButton(onPressed: () => _editServiceCommitment(c), child: const Text('Modifier')),
+                                              const SizedBox(width: 12),
+                                              ElevatedButton(onPressed: () => _showDonationModal(title: c['item_name'], projectId: _generalProjectId, presetAmount: (c['amount'] as num).toDouble()), style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFFD4A017)), child: const Text('Honorer')),
+                                              const SizedBox(width: 12),
+                                              OutlinedButton(onPressed: () => _deleteServiceCommitment(c), style: OutlinedButton.styleFrom(foregroundColor: Colors.red), child: const Text('Supprimer')),
+                                            ],
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  )),
+                                ],
+                              ],
+                            ),
+                      const SizedBox(height: 16),
+                      Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 16),
+                        child: ElevatedButton.icon(
+                          onPressed: _showPaymentReceipt,
+                          icon: const Icon(Icons.receipt_long),
+                          label: const Text('Reçu de paiement', style: TextStyle(fontSize: 18)),
+                          style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFFD4A017), foregroundColor: Colors.white, minimumSize: const Size(double.infinity, 50), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(30))),
+                        ),
+                      ),
+                      const SizedBox(height: 80),
+                    ],
                   ),
-                  const SizedBox(height: 80),
-                ],
-              ),
-            ),
+                ),
+        ),
+      ),
     );
   }
 

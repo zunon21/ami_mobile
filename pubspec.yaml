@@ -11,7 +11,7 @@ dependencies:
   flutter:
     sdk: flutter
   cupertino_icons: ^1.0.8
-  flutter_native_splash: 2.4.4   # ← modifié (était ^2.4.7)
+  flutter_native_splash: 2.4.4
   http: ^1.6.0
   shared_preferences: 2.4.0
   google_fonts: ^6.2.1
@@ -27,6 +27,7 @@ flutter:
 
   assets:
     - assets/images/logo.png
+    - assets/images/background.png          # ← ajouté pour l’image de fond
     - assets/images/splash_background.png
     - assets/images/login_background.png
     - assets/images/onboarding1.png

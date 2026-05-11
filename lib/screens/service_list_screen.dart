@@ -4,10 +4,9 @@ import 'dart:convert';
 import '../services/auth_service.dart';
 
 class ServiceListScreen extends StatefulWidget {
-  final String title;
-  final List<String> items;
+  final String categoryName; // ex: 'Champs', 'Projets', etc.
 
-  const ServiceListScreen({Key? key, required this.title, required this.items}) : super(key: key);
+  const ServiceListScreen({Key? key, required this.categoryName}) : super(key: key);
 
   @override
   _ServiceListScreenState createState() => _ServiceListScreenState();
@@ -15,6 +14,7 @@ class ServiceListScreen extends StatefulWidget {
 
 class _ServiceListScreenState extends State<ServiceListScreen> {
   final TextEditingController _searchController = TextEditingController();
+  List<String> _items = [];
   List<String> _filteredItems = [];
 
   final TextEditingController _amountController = TextEditingController();
@@ -22,9 +22,7 @@ class _ServiceListScreenState extends State<ServiceListScreen> {
   String _selectedPeriodicity = 'Mensuel';
   bool _isLoading = false;
 
-  // Contrôleur pour le champ "Motifs du don" (remplace les anciens extraLabel)
   TextEditingController? _reasonController;
-  // Pour ECOMIN : choix du type d'Ecomin
   String? _selectedEcominType;
   final List<String> _ecominTypes = ['Adolescents', 'Benjamins', 'Adultes'];
 
@@ -37,15 +35,62 @@ class _ServiceListScreenState extends State<ServiceListScreen> {
     }
   }
 
+  // Fonction de normalisation (minuscules, suppression des accents)
+  String _normalize(String s) {
+    return s.toLowerCase()
+        .replaceAll(RegExp(r'[éèêë]'), 'e')
+        .replaceAll(RegExp(r'[àâä]'), 'a')
+        .replaceAll(RegExp(r'[îï]'), 'i')
+        .replaceAll(RegExp(r'[ôö]'), 'o')
+        .replaceAll(RegExp(r'[ùûü]'), 'u')
+        .replaceAll(RegExp(r'[ç]'), 'c')
+        .trim();
+  }
+
   @override
   void initState() {
     super.initState();
-    _filteredItems = widget.items;
+    _fetchItems();
+  }
+
+  // Récupération des items pour la catégorie depuis l'API
+  Future<void> _fetchItems() async {
+    final token = await AuthService.getToken();
+    if (token == null) return;
+    try {
+      final response = await http.get(
+        Uri.parse('${AuthService.baseUrl}/api/service-items/categories'),
+        headers: {'Authorization': 'Bearer $token'},
+      );
+      if (response.statusCode == 200) {
+        final List<dynamic> categories = jsonDecode(response.body);
+        final normalizedTarget = _normalize(widget.categoryName);
+        final category = categories.firstWhere(
+          (cat) => _normalize(cat['name']) == normalizedTarget,
+          orElse: () => null,
+        );
+        if (category != null && category['items'] != null) {
+          final List<dynamic> itemsJson = category['items'];
+          final List<String> itemsList = itemsJson.map((item) => item['name'] as String).toList();
+          setState(() {
+            _items = itemsList;
+            _filteredItems = itemsList;
+          });
+        }
+      }
+    } catch (e) {
+      print('Erreur chargement items: $e');
+    }
+  }
+
+  // Rafraîchissement manuel (pull-to-refresh)
+  Future<void> _onRefresh() async {
+    await _fetchItems();
   }
 
   void _filterItems(String query) {
     setState(() {
-      _filteredItems = widget.items
+      _filteredItems = _items
           .where((item) => item.toLowerCase().contains(query.toLowerCase()))
           .toList();
     });
@@ -98,16 +143,15 @@ class _ServiceListScreenState extends State<ServiceListScreen> {
         }
 
         final Map<String, dynamic> body = {
-          'service_name': widget.title,
+          'service_name': widget.categoryName,
           'item_name': itemName,
           'amount': amount,
           'day_of_month': day,
           'periodicity': _mapPeriodicityToBackend(_selectedPeriodicity),
         };
 
-        // Construction du champ reason : si c'est ECOMIN et qu'un type a été choisi, on le mentionne
         String combinedReason = '';
-        if (widget.title == 'Activités' && itemName == 'ECOMIN' && ecominType != null && ecominType.isNotEmpty) {
+        if (widget.categoryName == 'Activités' && itemName == 'ECOMIN' && ecominType != null && ecominType.isNotEmpty) {
           combinedReason = 'Ecomin : $ecominType';
           if (reasonValue != null && reasonValue.isNotEmpty) {
             combinedReason += ' - $reasonValue';
@@ -153,11 +197,9 @@ class _ServiceListScreenState extends State<ServiceListScreen> {
       modalTitle = 'Engagement pour le calendrier de prière prier le maître';
     }
 
-    // Pour tous les items, on ajoute un champ "Motifs du don (optionnel)"
     _reasonController = TextEditingController();
 
-    // Indicateur pour savoir si on affiche le dropdown ECOMIN
-    final bool isEcomin = (widget.title == 'Activités' && itemName == 'ECOMIN');
+    final bool isEcomin = (widget.categoryName == 'Activités' && itemName == 'ECOMIN');
 
     showDialog(
       context: context,
@@ -182,7 +224,6 @@ class _ServiceListScreenState extends State<ServiceListScreen> {
                       decoration: const InputDecoration(labelText: 'Jour du mois (1-31)'),
                       keyboardType: TextInputType.number,
                     ),
-                  // Spécifique à ECOMIN : sélecteur "Quel Ecomin ?"
                   if (isEcomin) ...[
                     const SizedBox(height: 12),
                     DropdownButtonFormField<String>(
@@ -193,10 +234,9 @@ class _ServiceListScreenState extends State<ServiceListScreen> {
                     ),
                   ],
                   const SizedBox(height: 12),
-                  // Champ "Motifs du don (optionnel)" pour tous
                   TextField(
                     controller: _reasonController!,
-                    decoration: const InputDecoration(labelText: 'Motifs du don (optionnel)', prefixIcon: Icon(Icons.edit)),
+                    decoration: const InputDecoration(labelText: 'Motifs du don', prefixIcon: Icon(Icons.edit)), // (optionnel) retiré
                   ),
                   const SizedBox(height: 12),
                   DropdownButtonFormField<String>(
@@ -235,9 +275,9 @@ class _ServiceListScreenState extends State<ServiceListScreen> {
   @override
   Widget build(BuildContext context) {
     String? headerTitle;
-    if (widget.title == 'Champs') {
+    if (widget.categoryName == 'Champs') {
       headerTitle = 'Engagez vous à soutenir un champ';
-    } else if (widget.title == 'Projets') {
+    } else if (widget.categoryName == 'Projets') {
       headerTitle = 'Engagez vous à soutenir un Projet';
     }
 
@@ -250,50 +290,53 @@ class _ServiceListScreenState extends State<ServiceListScreen> {
           icon: const Icon(Icons.arrow_back, color: Colors.white),
           onPressed: () => Navigator.pop(context),
         ),
-        title: Text(widget.title, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+        title: Text(widget.categoryName, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
         centerTitle: true,
       ),
-      body: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
-          children: [
-            if (headerTitle != null) ...[
-              Text(
-                headerTitle,
-                style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Color(0xFF5D3A1A)),
+      body: RefreshIndicator(
+        onRefresh: _onRefresh,
+        child: Padding(
+          padding: const EdgeInsets.all(16.0),
+          child: Column(
+            children: [
+              if (headerTitle != null) ...[
+                Text(
+                  headerTitle,
+                  style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Color(0xFF5D3A1A)),
+                ),
+                const SizedBox(height: 12),
+              ],
+              TextField(
+                controller: _searchController,
+                decoration: InputDecoration(
+                  hintText: 'Chercher par nom',
+                  prefixIcon: const Icon(Icons.search),
+                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                ),
+                onChanged: _filterItems,
               ),
-              const SizedBox(height: 12),
+              const SizedBox(height: 16),
+              Expanded(
+                child: _filteredItems.isEmpty
+                    ? const Center(child: Text('Aucun élément trouvé'))
+                    : ListView.builder(
+                        itemCount: _filteredItems.length,
+                        itemBuilder: (ctx, index) {
+                          final item = _filteredItems[index];
+                          return Card(
+                            margin: const EdgeInsets.only(bottom: 8),
+                            child: ListTile(
+                              leading: const Icon(Icons.folder, color: Color(0xFFD4A017)),
+                              title: Text(item),
+                              trailing: const Icon(Icons.add_circle_outline, color: Color(0xFFD4A017)),
+                              onTap: () => _showCommitmentModal(item),
+                            ),
+                          );
+                        },
+                      ),
+              ),
             ],
-            TextField(
-              controller: _searchController,
-              decoration: InputDecoration(
-                hintText: 'Chercher par nom',
-                prefixIcon: const Icon(Icons.search),
-                border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-              ),
-              onChanged: _filterItems,
-            ),
-            const SizedBox(height: 16),
-            Expanded(
-              child: _filteredItems.isEmpty
-                  ? const Center(child: Text('Aucun élément trouvé'))
-                  : ListView.builder(
-                      itemCount: _filteredItems.length,
-                      itemBuilder: (ctx, index) {
-                        final item = _filteredItems[index];
-                        return Card(
-                          margin: const EdgeInsets.only(bottom: 8),
-                          child: ListTile(
-                            leading: const Icon(Icons.folder, color: Color(0xFFD4A017)),
-                            title: Text(item),
-                            trailing: const Icon(Icons.add_circle_outline, color: Color(0xFFD4A017)),
-                            onTap: () => _showCommitmentModal(item),
-                          ),
-                        );
-                      },
-                    ),
-            ),
-          ],
+          ),
         ),
       ),
     );
