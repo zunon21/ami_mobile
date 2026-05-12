@@ -2,9 +2,11 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
+import 'package:app_settings/app_settings.dart';
 import '../services/auth_service.dart';
 import '../services/commitment_service.dart';
 import 'service_list_screen.dart';
+import '../widgets/custom_drawer.dart';
 
 class HomeScreen extends StatefulWidget {
   @override
@@ -839,16 +841,18 @@ class _HomeScreenState extends State<HomeScreen> {
       appBar: AppBar(
         elevation: 2,
         backgroundColor: const Color(0xFFD4A017),
-        leading: IconButton(
-          icon: const Icon(Icons.menu, color: Colors.white),
-          onPressed: () => ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Menu à venir'))),
+        leading: Builder(
+          builder: (context) => IconButton(
+            icon: const Icon(Icons.menu, color: Colors.white),
+            onPressed: () => Scaffold.of(context).openDrawer(),
+          ),
         ),
         title: const Text('Accueil', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600)),
         centerTitle: true,
         actions: [
           IconButton(
-            icon: const Icon(Icons.more_vert, color: Colors.white),
-            onPressed: () => ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Options à venir'))),
+            icon: const Icon(Icons.settings, color: Colors.white),
+            onPressed: () => AppSettings.openAppSettings(),
           ),
         ],
         bottom: PreferredSize(
@@ -863,6 +867,7 @@ class _HomeScreenState extends State<HomeScreen> {
           ),
         ),
       ),
+      drawer: const CustomDrawer(),
       body: Container(
         decoration: const BoxDecoration(
           image: DecorationImage(

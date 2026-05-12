@@ -15,6 +15,8 @@ dependencies:
   http: ^1.6.0
   shared_preferences: 2.4.0
   google_fonts: ^6.2.1
+  url_launcher: ^6.2.0
+  app_settings: ^5.1.1   # ← ajouté pour ouvrir les paramètres système
 
 dev_dependencies:
   flutter_test:
@@ -27,7 +29,7 @@ flutter:
 
   assets:
     - assets/images/logo.png
-    - assets/images/background.png          # ← ajouté pour l’image de fond
+    - assets/images/background.png
     - assets/images/splash_background.png
     - assets/images/login_background.png
     - assets/images/onboarding1.png

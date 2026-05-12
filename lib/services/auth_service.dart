@@ -26,7 +26,7 @@ class AuthService {
     if (token == null) return false;
     try {
       final response = await http.get(
-        Uri.parse('$baseUrl/api/projects'),
+        Uri.parse('$baseUrl/api/auth/me'), // ✅ route corrigée
         headers: {'Authorization': 'Bearer $token'},
       );
       return response.statusCode == 200;
