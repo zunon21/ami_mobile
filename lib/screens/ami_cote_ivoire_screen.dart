@@ -78,14 +78,14 @@ class AmiCoteIvoireScreen extends StatelessWidget {
                   child: Padding(
                     padding: const EdgeInsets.all(16),
                     child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.center,
+                      crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         const Text('Présentation de l\'AMI', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Color(0xFFD4A017))),
                         const SizedBox(height: 8),
                         const Text(
                           'Fondée en 1990 à l\'initiative des missionnaires de CAPRO (Calvary Ministries), l\'Action Missionnaire Interafricaine Côte d\'Ivoire (AMI-CI) est une agence missionnaire transculturelle engagée dans l\'accomplissement de la Grande Commission.\n\nAMI-CI travaille en étroite collaboration avec l\'ensemble des dénominations protestantes, évangéliques et pentecôtistes.',
-                          style: TextStyle(fontSize: 14, color: Colors.black),
-                          textAlign: TextAlign.center,
+                          style: TextStyle(fontSize: 16, fontWeight: FontWeight.w500, color: Colors.black),
+                          textAlign: TextAlign.justify,
                         ),
                       ],
                     ),
@@ -99,14 +99,14 @@ class AmiCoteIvoireScreen extends StatelessWidget {
                   child: Padding(
                     padding: const EdgeInsets.all(16),
                     child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.center,
+                      crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         const Text('Notre Vision', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Color(0xFFD4A017))),
                         const SizedBox(height: 8),
                         const Text(
                           'L\'Action Missionnaire Interafricaine (AMI) est née du fardeau d\'atteindre les peuples non atteints de l\'Afrique et du monde par l\'Évangile de Jésus-Christ dans le contexte de leur culture. Cela consiste à susciter un corps de croyants autochtones, autonomes, capables d\'envoyer par eux-mêmes des missionnaires dans le reste du monde.',
-                          style: TextStyle(fontSize: 14, color: Colors.black),
-                          textAlign: TextAlign.center,
+                          style: TextStyle(fontSize: 16, fontWeight: FontWeight.w500, color: Colors.black),
+                          textAlign: TextAlign.justify,
                         ),
                       ],
                     ),
@@ -120,7 +120,7 @@ class AmiCoteIvoireScreen extends StatelessWidget {
                   child: Padding(
                     padding: const EdgeInsets.all(16),
                     child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.center,
+                      crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         const Text('Nos Objectifs', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Color(0xFFD4A017))),
                         const SizedBox(height: 8),
@@ -130,8 +130,8 @@ class AmiCoteIvoireScreen extends StatelessWidget {
                           '• Implanter des églises autochtones, autonomes, capables de s\'autofinancer et de s\'autopropager.\n'
                           '• Aider, à travers la sensibilisation et la mobilisation missionnaire, des programmes d\'enseignement et de discipolat, les églises et le Corps du Christ dans le pays à répondre à l\'Ordre suprême.\n'
                           '• Apporter notre contribution, avec les moyens appropriés, au travail missionnaire en cours dans le pays.',
-                          style: TextStyle(fontSize: 14, color: Colors.black),
-                          textAlign: TextAlign.center,
+                          style: TextStyle(fontSize: 16, fontWeight: FontWeight.w500, color: Colors.black),
+                          textAlign: TextAlign.justify,
                         ),
                       ],
                     ),
@@ -145,7 +145,7 @@ class AmiCoteIvoireScreen extends StatelessWidget {
                   child: Padding(
                     padding: const EdgeInsets.all(16),
                     child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.center,
+                      crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         const Text('Nos Champs Missionnaires', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Color(0xFFD4A017))),
                         const SizedBox(height: 8),
@@ -153,8 +153,8 @@ class AmiCoteIvoireScreen extends StatelessWidget {
                           'Un champ missionnaire est un peuple non atteint au sein duquel l\'AMI a envoyé des missionnaires y œuvrer.\n\n'
                           'Dans le monde, AMI/CAPRO travaille parmi plus de 100 peuples non atteints.\n\n'
                           'En Côte d\'Ivoire, nous travaillons parmi les Lobis, les Koulangos, les Lorhons et les Koyakas.',
-                          style: TextStyle(fontSize: 14, color: Colors.black),
-                          textAlign: TextAlign.center,
+                          style: TextStyle(fontSize: 16, fontWeight: FontWeight.w500, color: Colors.black),
+                          textAlign: TextAlign.justify,
                         ),
                       ],
                     ),
@@ -168,7 +168,7 @@ class AmiCoteIvoireScreen extends StatelessWidget {
                   child: Padding(
                     padding: const EdgeInsets.all(16),
                     child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.center,
+                      crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         const Text('Nos Activités et Programmes', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Color(0xFFD4A017))),
                         const SizedBox(height: 8),
@@ -189,8 +189,8 @@ class AmiCoteIvoireScreen extends StatelessWidget {
                           '• Des Formations sur l’évangélisation et sur l\'implantation d\'églises\n'
                           '• Sorties d\'évangélisation\n'
                           '• Service Volontaire Chrétien, etc.',
-                          style: TextStyle(fontSize: 14, color: Colors.black),
-                          textAlign: TextAlign.center,
+                          style: TextStyle(fontSize: 16, fontWeight: FontWeight.w500, color: Colors.black),
+                          textAlign: TextAlign.justify,
                         ),
                       ],
                     ),
@@ -204,7 +204,7 @@ class AmiCoteIvoireScreen extends StatelessWidget {
                   child: Padding(
                     padding: const EdgeInsets.all(16),
                     child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.center,
+                      crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         const Text('Notre Organisation', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Color(0xFFD4A017))),
                         const SizedBox(height: 8),
@@ -212,8 +212,8 @@ class AmiCoteIvoireScreen extends StatelessWidget {
                           'L\'AMI est organisée comme suit :\n'
                           '• Les départements de l\'Administration, de la Mobilisation, de la Formation, de la Recherche et des Finances.\n'
                           '• Les Zones, les Champs Missionnaires et les Cellules.',
-                          style: TextStyle(fontSize: 14, color: Colors.black),
-                          textAlign: TextAlign.center,
+                          style: TextStyle(fontSize: 16, fontWeight: FontWeight.w500, color: Colors.black),
+                          textAlign: TextAlign.justify,
                         ),
                       ],
                     ),
@@ -227,7 +227,7 @@ class AmiCoteIvoireScreen extends StatelessWidget {
                   child: Padding(
                     padding: const EdgeInsets.all(16),
                     child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.center,
+                      crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         const Text('Nos Ressources', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Color(0xFFD4A017))),
                         const SizedBox(height: 8),
@@ -236,8 +236,8 @@ class AmiCoteIvoireScreen extends StatelessWidget {
                           '« Et comment y aura-t-il des prédicateurs, s\'ils ne sont pas envoyés selon qu\'il est écrit : Qu\'ils sont beaux les pieds de ceux qui annoncent la paix, de ceux qui annoncent de bonnes nouvelles ! »\n'
                           '— Romains 10:15\n\n'
                           'Elle compte sur le Seigneur pour pourvoir aux besoins du ministère et à ceux des missionnaires. Ainsi, l\'AMI partage ses besoins avec les chrétiens et les communautés ayant saisi la vision du Seigneur pour les peuples non atteints. C\'est à travers leurs dons volontaires et leur soutien que l\'AMI fonctionne.',
-                          style: TextStyle(fontSize: 14, color: Colors.black),
-                          textAlign: TextAlign.center,
+                          style: TextStyle(fontSize: 16, fontWeight: FontWeight.w500, color: Colors.black),
+                          textAlign: TextAlign.justify,
                         ),
                       ],
                     ),
@@ -269,8 +269,8 @@ class AmiCoteIvoireScreen extends StatelessWidget {
                           '08 BP 1818 Abidjan 08, Côte d\'Ivoire\n\n'
                           'Email : amicapro_ci@yahoo.fr\n'
                           'Tél : +225 07 09 65 35 25 / +225 07 09 00 46 21 / +225 07 04 00 98 22',
-                          style: TextStyle(fontSize: 14, color: Colors.black),
-                          textAlign: TextAlign.center,
+                          style: TextStyle(fontSize: 16, fontWeight: FontWeight.w500, color: Colors.black),
+                          textAlign: TextAlign.justify,
                         ),
                         const SizedBox(height: 16),
                         ElevatedButton(
@@ -285,7 +285,7 @@ class AmiCoteIvoireScreen extends StatelessWidget {
                         const SizedBox(height: 16),
                         const Text(
                           '"Allez, faites de toutes les nations des disciples [...] et enseignez-leur à observer tout ce que je vous ai prescrit." — Matthieu 28:19-20',
-                          style: TextStyle(fontStyle: FontStyle.italic, fontSize: 14, color: Colors.black),
+                          style: TextStyle(fontStyle: FontStyle.italic, fontSize: 14, fontWeight: FontWeight.normal, color: Colors.black),
                           textAlign: TextAlign.center,
                         ),
                       ],

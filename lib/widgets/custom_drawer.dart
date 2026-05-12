@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
-import 'package:url_launcher/url_launcher_string.dart';
 import '../screens/ami_cote_ivoire_screen.dart';
 import '../screens/contactez_nous_screen.dart';
 
@@ -9,28 +8,35 @@ class CustomDrawer extends StatelessWidget {
 
   const CustomDrawer({Key? key, this.onAccueilTap}) : super(key: key);
 
+  // ✅ Correction 1 : YouTube fonctionnel
   Future<void> _openYouTube() async {
     const url = 'https://youtube.com/@amicotedivoiretv?si=YdYCdLvGwORvYreL';
-    if (await canLaunchUrlString(url)) {
-      await launchUrlString(url, mode: LaunchMode.externalApplication);
+    final Uri uri = Uri.parse(url);
+    if (await canLaunchUrl(uri)) {
+      await launchUrl(uri, mode: LaunchMode.externalApplication);
     } else {
       throw 'Impossible d’ouvrir le lien';
     }
   }
 
+  // ✅ Correction 2 : Ouvre l'app Priez le Maître si installée, sinon Play Store
   Future<void> _openPriezLeMaitre() async {
     const packageName = 'com.zunon21.priezlemaitre';
     final playStoreUrl = 'https://play.google.com/store/apps/details?id=$packageName';
-    final intentUrl = 'intent://$packageName#Intent;scheme=package;end';
-
-    try {
-      if (await canLaunchUrlString(intentUrl)) {
-        await launchUrlString(intentUrl, mode: LaunchMode.externalApplication);
+    
+    // Tente d'ouvrir l'application via son package (Android)
+    final appUri = Uri(scheme: 'package', path: packageName);
+    if (await canLaunchUrl(appUri)) {
+      await launchUrl(appUri, mode: LaunchMode.externalApplication);
+    } else {
+      // Sinon, ouvre le Play Store
+      final storeUri = Uri.parse(playStoreUrl);
+      if (await canLaunchUrl(storeUri)) {
+        await launchUrl(storeUri, mode: LaunchMode.externalApplication);
       } else {
-        await launchUrlString(playStoreUrl, mode: LaunchMode.externalApplication);
+        // Dernier recours : ouvrir le navigateur
+        await launchUrl(storeUri);
       }
-    } catch (e) {
-      await launchUrlString(playStoreUrl, mode: LaunchMode.externalApplication);
     }
   }
 

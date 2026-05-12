@@ -19,12 +19,12 @@ class _SplashScreenState extends State<SplashScreen> {
   }
 
   Future<void> _checkLoginStatus() async {
-    // Attendre 3 secondes pour l'affichage du splash (laisse le temps à l'écran suivant de se préparer)
+    // Attendre 3 secondes pour l'affichage du splash
     await Future.delayed(Duration(seconds: 3));
 
     // Vérifier si l'utilisateur a déjà vu l'onboarding
     final prefs = await SharedPreferences.getInstance();
-    final bool onboardingSeen = prefs.getBool('onboarding_seen') ?? false;
+    final bool onboardingSeen = prefs.getBool('onboarding_completed') ?? false; // ✅ clé corrigée
 
     // Vérifier si l'utilisateur est connecté
     final token = await AuthService.getToken();
