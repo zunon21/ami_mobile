@@ -36,7 +36,28 @@ class _HomeScreenState extends State<HomeScreen> {
   String _selectedPaymentMethod = 'wave';
   final List<String> _paymentMethods = ['wave', 'orange', 'mtn', 'moov', 'djamo'];
 
-  // Affichage des moyens de paiement (djamo → CARTES BANCAIRES)
+  // Couleurs pour les méthodes de paiement
+  Color _getPaymentMethodColor(String method) {
+    switch (method) {
+      case 'wave': return const Color(0xFF00B2FF); // Bleu Wave
+      case 'orange': return const Color(0xFFFF5C00); // Orange
+      case 'mtn': return const Color(0xFFF4A300); // Jaune MTN
+      case 'moov': return const Color(0xFF00A651); // Vert Moov
+      default: return const Color(0xFF5D3A1A); // Marron pour CARTES BANCAIRES
+    }
+  }
+
+  // Libellé et couleur
+  Widget _getPaymentMethodWidget(String method) {
+    return Text(
+      _getPaymentMethodLabel(method),
+      style: TextStyle(
+        color: _getPaymentMethodColor(method),
+        fontWeight: FontWeight.w500,
+      ),
+    );
+  }
+
   String _getPaymentMethodLabel(String method) {
     switch (method) {
       case 'wave': return 'WAVE';
@@ -130,6 +151,7 @@ class _HomeScreenState extends State<HomeScreen> {
     }
   }
 
+  // ✅ Ne garde que les paiements réussis et les trie par date décroissante
   Future<void> _fetchPaymentHistory() async {
     final token = await AuthService.getToken();
     if (token == null) return;
@@ -140,8 +162,8 @@ class _HomeScreenState extends State<HomeScreen> {
       );
       if (response.statusCode == 200) {
         final List<dynamic> all = jsonDecode(response.body);
-        // Filtrer les dons réussis et trier par date décroissante (les plus récents en premier)
-        final List<dynamic> successful = all.where((d) => d['status'] == 'success').toList();
+        // ✅ Filtrer les paiements réussis
+        final successful = all.where((d) => d['status'] == 'success').toList();
         successful.sort((a, b) => DateTime.parse(b['createdAt']).compareTo(DateTime.parse(a['createdAt'])));
         setState(() {
           _paymentHistory = successful;
@@ -185,12 +207,8 @@ class _HomeScreenState extends State<HomeScreen> {
                             final DateTime dateTime = DateTime.parse(payment['createdAt']);
                             final String formattedDate = '${dateTime.day}/${dateTime.month}/${dateTime.year}';
                             final String formattedTime = '${dateTime.hour.toString().padLeft(2, '0')}:${dateTime.minute.toString().padLeft(2, '0')}';
-                            String title = 'Don AMI';
-                            if (payment['project_id'] == _generalProjectId) {
-                              title = 'Fonctionnement de l\'AMI';
-                            } else if (payment['donation_type'] == 'service') {
-                              title = 'Service AMI';
-                            }
+                            // Utiliser la description stockée ou un titre par défaut
+                            String title = payment['description'] ?? 'Don AMI';
                             return Card(
                               margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
                               child: ListTile(
@@ -218,6 +236,7 @@ class _HomeScreenState extends State<HomeScreen> {
     final TextEditingController destinationController = TextEditingController();
     final TextEditingController reasonController = TextEditingController();
     String localPaymentMethod = _selectedPaymentMethod;
+    bool isPaying = false;
 
     showModalBottomSheet(
       context: context,
@@ -275,7 +294,7 @@ class _HomeScreenState extends State<HomeScreen> {
                     decoration: const InputDecoration(labelText: 'Moyen de paiement', prefixIcon: Icon(Icons.payment)),
                     items: _paymentMethods.map((method) => DropdownMenuItem(
                       value: method,
-                      child: Text(_getPaymentMethodLabel(method)),
+                      child: _getPaymentMethodWidget(method),
                     )).toList(),
                     onChanged: (value) {
                       setStateModal(() {
@@ -285,33 +304,40 @@ class _HomeScreenState extends State<HomeScreen> {
                   ),
                   const SizedBox(height: 24),
                   ElevatedButton(
-                    onPressed: () async {
-                      final String orgName = orgNameController.text.trim();
-                      final int? amount = int.tryParse(amountController.text.trim());
-                      if (orgName.isEmpty) {
-                        ScaffoldMessenger.of(ctx).showSnackBar(const SnackBar(content: Text('Veuillez saisir le nom de l’organisation')));
-                        return;
-                      }
-                      if (amount == null || amount <= 0) {
-                        ScaffoldMessenger.of(ctx).showSnackBar(const SnackBar(content: Text('Montant invalide')));
-                        return;
-                      }
-                      bool success = await PaymentService.initiatePayment(amount, _generalProjectId, localPaymentMethod);
-                      Navigator.pop(ctx);
-                      if (success) {
-                        await _fetchPaymentHistory(); // ✅ mise à jour du reçu
-                        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Redirection vers la page de paiement...')));
-                      } else {
-                        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Erreur lors de l’initiation du paiement')));
-                      }
-                    },
+                    onPressed: isPaying
+                        ? null
+                        : () async {
+                            setStateModal(() => isPaying = true);
+                            final String orgName = orgNameController.text.trim();
+                            final int? amount = int.tryParse(amountController.text.trim());
+                            if (orgName.isEmpty) {
+                              ScaffoldMessenger.of(ctx).showSnackBar(const SnackBar(content: Text('Veuillez saisir le nom de l’organisation')));
+                              setStateModal(() => isPaying = false);
+                              return;
+                            }
+                            if (amount == null || amount <= 0) {
+                              ScaffoldMessenger.of(ctx).showSnackBar(const SnackBar(content: Text('Montant invalide')));
+                              setStateModal(() => isPaying = false);
+                              return;
+                            }
+                            final success = await PaymentService.initiatePayment(amount, _generalProjectId, localPaymentMethod, description: 'Structures et Organisations');
+                            Navigator.pop(ctx);
+                            if (success) {
+                              await _fetchPaymentHistory();
+                              ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Redirection vers la page de paiement...')));
+                            } else {
+                              ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Erreur lors de l’initiation du paiement')));
+                            }
+                          },
                     style: ElevatedButton.styleFrom(
                       backgroundColor: const Color(0xFFD4A017),
                       foregroundColor: Colors.white,
                       minimumSize: const Size(double.infinity, 50),
                       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(30)),
                     ),
-                    child: const Text('Procéder au paiement', style: TextStyle(fontSize: 16)),
+                    child: isPaying
+                        ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                        : const Text('Procéder au paiement', style: TextStyle(fontSize: 16)),
                   ),
                   const SizedBox(height: 16),
                 ],
@@ -339,6 +365,7 @@ class _HomeScreenState extends State<HomeScreen> {
     }
 
     String localPaymentMethod = _selectedPaymentMethod;
+    bool isPaying = false;
 
     showDialog(
       context: context,
@@ -387,7 +414,7 @@ class _HomeScreenState extends State<HomeScreen> {
                       decoration: const InputDecoration(labelText: 'Moyen de paiement', prefixIcon: Icon(Icons.payment)),
                       items: _paymentMethods.map((method) => DropdownMenuItem(
                         value: method,
-                        child: Text(_getPaymentMethodLabel(method)),
+                        child: _getPaymentMethodWidget(method),
                       )).toList(),
                       onChanged: (value) {
                         setStateDialog(() {
@@ -407,46 +434,52 @@ class _HomeScreenState extends State<HomeScreen> {
                   child: Text('Annuler'),
                 ),
                 ElevatedButton(
-                  onPressed: () async {
-                    if (isDonPonctuel) {
-                      final amount = double.tryParse(_amountController.text.trim());
-                      if (amount == null || amount <= 0) {
-                        ScaffoldMessenger.of(ctx).showSnackBar(const SnackBar(content: Text('Montant invalide')));
-                        return;
-                      }
-                      bool success = await PaymentService.initiatePayment(amount.toInt(), _generalProjectId, localPaymentMethod);
-                      Navigator.pop(ctx);
-                      _isModalOpen = false;
-                      if (success) {
-                        await _fetchPaymentHistory(); // ✅ mise à jour du reçu
-                        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Redirection vers la page de paiement...')));
-                      } else {
-                        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Erreur initiation paiement')));
-                      }
-                    } else {
-                      final amount = double.tryParse(_amountController.text.trim());
-                      final day = int.tryParse(_dayController.text.trim());
-                      if (amount == null || amount <= 0 || day == null || day < 1 || day > 31) {
-                        ScaffoldMessenger.of(ctx).showSnackBar(SnackBar(content: Text('Montant ou jour invalide')));
-                        return;
-                      }
-                      final success = await CommitmentService.saveCommitment(
-                        amount: amount,
-                        dayOfMonth: day,
-                        periodicity: _mapPeriodicityToBackend(_selectedPeriodicity),
-                        reason: null,
-                      );
-                      Navigator.pop(ctx);
-                      _isModalOpen = false;
-                      if (success) {
-                        await _fetchCommitment();
-                        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Fonctionnement de l\'AMI enregistré')));
-                      } else {
-                        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Erreur lors de l\'enregistrement')));
-                      }
-                    }
-                  },
-                  child: Text(isDonPonctuel ? 'Procéder au paiement' : 'Enregistrer'),
+                  onPressed: isPaying
+                      ? null
+                      : () async {
+                          if (isDonPonctuel) {
+                            setStateDialog(() => isPaying = true);
+                            final amount = double.tryParse(_amountController.text.trim());
+                            if (amount == null || amount <= 0) {
+                              ScaffoldMessenger.of(ctx).showSnackBar(const SnackBar(content: Text('Montant invalide')));
+                              setStateDialog(() => isPaying = false);
+                              return;
+                            }
+                            final success = await PaymentService.initiatePayment(amount.toInt(), _generalProjectId, localPaymentMethod, description: 'Fonctionnement de l\'AMI');
+                            Navigator.pop(ctx);
+                            _isModalOpen = false;
+                            if (success) {
+                              await _fetchPaymentHistory();
+                              ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Redirection vers la page de paiement...')));
+                            } else {
+                              ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Erreur initiation paiement')));
+                            }
+                          } else {
+                            final amount = double.tryParse(_amountController.text.trim());
+                            final day = int.tryParse(_dayController.text.trim());
+                            if (amount == null || amount <= 0 || day == null || day < 1 || day > 31) {
+                              ScaffoldMessenger.of(ctx).showSnackBar(SnackBar(content: Text('Montant ou jour invalide')));
+                              return;
+                            }
+                            final success = await CommitmentService.saveCommitment(
+                              amount: amount,
+                              dayOfMonth: day,
+                              periodicity: _mapPeriodicityToBackend(_selectedPeriodicity),
+                              reason: null,
+                            );
+                            Navigator.pop(ctx);
+                            _isModalOpen = false;
+                            if (success) {
+                              await _fetchCommitment();
+                              ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Fonctionnement de l\'AMI enregistré')));
+                            } else {
+                              ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Erreur lors de l\'enregistrement')));
+                            }
+                          }
+                        },
+                  child: isPaying
+                      ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2))
+                      : Text(isDonPonctuel ? 'Procéder au paiement' : 'Enregistrer'),
                 ),
               ],
             );
@@ -459,6 +492,7 @@ class _HomeScreenState extends State<HomeScreen> {
   void _showDonationModal({required String title, required String projectId, double? presetAmount}) {
     final amountController = TextEditingController(text: (presetAmount ?? 0).toString());
     String localPaymentMethod = _selectedPaymentMethod;
+    bool isPaying = false;
 
     showModalBottomSheet(
       context: context,
@@ -485,7 +519,7 @@ class _HomeScreenState extends State<HomeScreen> {
                     decoration: const InputDecoration(labelText: 'Moyen de paiement', prefixIcon: Icon(Icons.payment)),
                     items: _paymentMethods.map((method) => DropdownMenuItem(
                       value: method,
-                      child: Text(_getPaymentMethodLabel(method)),
+                      child: _getPaymentMethodWidget(method),
                     )).toList(),
                     onChanged: (value) {
                       setStateModal(() {
@@ -495,21 +529,27 @@ class _HomeScreenState extends State<HomeScreen> {
                   ),
                   SizedBox(height: 24),
                   ElevatedButton(
-                    onPressed: () async {
-                      final amount = int.tryParse(amountController.text.trim());
-                      if (amount == null || amount <= 0) {
-                        ScaffoldMessenger.of(ctx).showSnackBar(const SnackBar(content: Text('Montant invalide')));
-                        return;
-                      }
-                      bool success = await PaymentService.initiatePayment(amount, projectId, localPaymentMethod);
-                      Navigator.pop(ctx);
-                      if (success) {
-                        await _fetchPaymentHistory(); // ✅ mise à jour du reçu
-                      } else {
-                        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Erreur paiement')));
-                      }
-                    },
-                    child: Text('Procéder au paiement'),
+                    onPressed: isPaying
+                        ? null
+                        : () async {
+                            setStateModal(() => isPaying = true);
+                            final amount = int.tryParse(amountController.text.trim());
+                            if (amount == null || amount <= 0) {
+                              ScaffoldMessenger.of(ctx).showSnackBar(const SnackBar(content: Text('Montant invalide')));
+                              setStateModal(() => isPaying = false);
+                              return;
+                            }
+                            final success = await PaymentService.initiatePayment(amount, projectId, localPaymentMethod, description: title);
+                            Navigator.pop(ctx);
+                            if (success) {
+                              await _fetchPaymentHistory();
+                            } else {
+                              ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Erreur paiement')));
+                            }
+                          },
+                    child: isPaying
+                        ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2))
+                        : const Text('Procéder au paiement'),
                   ),
                   SizedBox(height: 16),
                 ],
@@ -529,6 +569,7 @@ class _HomeScreenState extends State<HomeScreen> {
     String selectedPeriodicity = 'Mensuel';
     final List<String> periodicities = ['Mensuel', 'Bimensuel', 'Trimestriel', 'Semestriel', 'Annuel', 'Ponctuel'];
     String localPaymentMethod = _selectedPaymentMethod;
+    bool isPaying = false;
 
     showModalBottomSheet(
       context: context,
@@ -576,7 +617,7 @@ class _HomeScreenState extends State<HomeScreen> {
                       decoration: const InputDecoration(labelText: 'Moyen de paiement', prefixIcon: Icon(Icons.payment)),
                       items: _paymentMethods.map((method) => DropdownMenuItem(
                         value: method,
-                        child: Text(_getPaymentMethodLabel(method)),
+                        child: _getPaymentMethodWidget(method),
                       )).toList(),
                       onChanged: (value) {
                         setStateModal(() {
@@ -587,20 +628,26 @@ class _HomeScreenState extends State<HomeScreen> {
                   ],
                   const SizedBox(height: 24),
                   ElevatedButton(
-                    onPressed: _isSubmittingMission
+                    onPressed: _isSubmittingMission || isPaying
                         ? null
-                        : () => _saveMissionCommitment(
-                            ctx,
-                            amountController,
-                            dayController,
-                            missionaryNameController,
-                            reasonController,
-                            selectedPeriodicity,
-                            isDonPonctuel,
-                            localPaymentMethod,
-                          ),
+                        : () async {
+                            setStateModal(() => isPaying = true);
+                            await _saveMissionCommitment(
+                              ctx,
+                              amountController,
+                              dayController,
+                              missionaryNameController,
+                              reasonController,
+                              selectedPeriodicity,
+                              isDonPonctuel,
+                              localPaymentMethod,
+                              setStateModal,
+                            );
+                          },
                     style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFFD4A017), foregroundColor: Colors.white, minimumSize: const Size(double.infinity, 50), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(30))),
-                    child: _isSubmittingMission ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white)) : Text(isDonPonctuel ? 'Procéder au paiement' : 'Enregistrer l\'engagement', style: const TextStyle(fontSize: 16)),
+                    child: isPaying
+                        ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                        : Text(isDonPonctuel ? 'Procéder au paiement' : 'Enregistrer l\'engagement', style: const TextStyle(fontSize: 16)),
                   ),
                   const SizedBox(height: 16),
                 ],
@@ -621,6 +668,7 @@ class _HomeScreenState extends State<HomeScreen> {
     String periodicity,
     bool isDonPonctuel,
     String paymentMethod,
+    StateSetter setModalState,
   ) async {
     if (_isSubmittingMission) return;
     setState(() => _isSubmittingMission = true);
@@ -630,19 +678,21 @@ class _HomeScreenState extends State<HomeScreen> {
     if (amount == null || amount <= 0) {
       ScaffoldMessenger.of(ctx).showSnackBar(const SnackBar(content: Text('Montant invalide')));
       setState(() => _isSubmittingMission = false);
+      setModalState(() {});
       return;
     }
     if (name.isEmpty) {
       ScaffoldMessenger.of(ctx).showSnackBar(const SnackBar(content: Text('Veuillez saisir le nom du missionnaire')));
       setState(() => _isSubmittingMission = false);
+      setModalState(() {});
       return;
     }
     try {
       if (isDonPonctuel) {
-        bool success = await PaymentService.initiatePayment(amount, _generalProjectId, paymentMethod);
+        final success = await PaymentService.initiatePayment(amount, _generalProjectId, paymentMethod, description: 'Missionnaire - $name');
         Navigator.pop(ctx);
         if (success) {
-          await _fetchPaymentHistory(); // ✅ mise à jour du reçu
+          await _fetchPaymentHistory();
           ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Redirection vers la page de paiement...')));
         } else {
           ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Erreur initiation paiement')));
@@ -652,12 +702,14 @@ class _HomeScreenState extends State<HomeScreen> {
         if (day == null || day < 1 || day > 31) {
           ScaffoldMessenger.of(ctx).showSnackBar(const SnackBar(content: Text('Jour invalide (1-31)')));
           setState(() => _isSubmittingMission = false);
+          setModalState(() {});
           return;
         }
         final token = await AuthService.getToken();
         if (token == null) {
           ScaffoldMessenger.of(ctx).showSnackBar(const SnackBar(content: Text('Utilisateur non connecté')));
           setState(() => _isSubmittingMission = false);
+          setModalState(() {});
           return;
         }
         final response = await http.post(
@@ -686,6 +738,7 @@ class _HomeScreenState extends State<HomeScreen> {
     } finally {
       if (mounted) setState(() => _isSubmittingMission = false);
     }
+    setModalState(() {});
   }
 
   Future<void> _deleteCommitment() async {
@@ -867,62 +920,77 @@ class _HomeScreenState extends State<HomeScreen> {
     final double amountValue = double.tryParse(commitment['amount'].toString()) ?? 0;
     final TextEditingController amountCtrl = TextEditingController(text: amountValue.toString());
     String localPaymentMethod = _selectedPaymentMethod;
+    bool isPaying = false;
+    final String description = '${commitment['service_name']} - ${commitment['item_name']}';
 
     await showDialog(
       context: context,
       barrierDismissible: false,
-      builder: (ctx) => StatefulBuilder(
-        builder: (context, setStateDialog) {
-          return AlertDialog(
-            title: const Text('Honorer l\'engagement'),
-            content: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                TextField(
-                  controller: amountCtrl,
-                  decoration: const InputDecoration(labelText: 'Montant (FCFA)'),
-                  keyboardType: TextInputType.number,
+      builder: (ctx) {
+        return StatefulBuilder(
+          builder: (context, setStateDialog) {
+            return AlertDialog(
+              title: const Text('Honorer l\'engagement'),
+              content: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  TextField(
+                    controller: amountCtrl,
+                    decoration: const InputDecoration(labelText: 'Montant (FCFA)'),
+                    keyboardType: TextInputType.number,
+                  ),
+                  const SizedBox(height: 12),
+                  DropdownButtonFormField<String>(
+                    value: localPaymentMethod,
+                    decoration: const InputDecoration(labelText: 'Moyen de paiement', prefixIcon: Icon(Icons.payment)),
+                    items: _paymentMethods.map((method) => DropdownMenuItem(
+                      value: method,
+                      child: _getPaymentMethodWidget(method),
+                    )).toList(),
+                    onChanged: (value) {
+                      setStateDialog(() {
+                        localPaymentMethod = value!;
+                      });
+                    },
+                  ),
+                ],
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(ctx),
+                  child: const Text('Annuler'),
                 ),
-                const SizedBox(height: 12),
-                DropdownButtonFormField<String>(
-                  value: localPaymentMethod,
-                  decoration: const InputDecoration(labelText: 'Moyen de paiement', prefixIcon: Icon(Icons.payment)),
-                  items: _paymentMethods.map((method) => DropdownMenuItem(
-                    value: method,
-                    child: Text(_getPaymentMethodLabel(method)),
-                  )).toList(),
-                  onChanged: (value) {
-                    setStateDialog(() {
-                      localPaymentMethod = value!;
-                    });
-                  },
+                ElevatedButton(
+                  onPressed: isPaying
+                      ? null
+                      : () async {
+                          setStateDialog(() => isPaying = true);
+                          final double amountDouble = double.tryParse(amountCtrl.text.trim()) ?? 0;
+                          final int newAmount = amountDouble.toInt();
+                          if (newAmount <= 0) {
+                            ScaffoldMessenger.of(ctx).showSnackBar(const SnackBar(content: Text('Montant invalide')));
+                            setStateDialog(() => isPaying = false);
+                            return;
+                          }
+                          final success = await PaymentService.initiatePayment(newAmount, _generalProjectId, localPaymentMethod, description: description);
+                          if (!mounted) return;
+                          Navigator.pop(ctx);
+                          if (success) {
+                            await _fetchPaymentHistory();
+                            ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Redirection vers la page de paiement...')));
+                          } else {
+                            ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Erreur lors de l’initiation du paiement')));
+                          }
+                        },
+                  child: isPaying
+                      ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2))
+                      : const Text('Payer'),
                 ),
               ],
-            ),
-            actions: [
-              TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Annuler')),
-              ElevatedButton(
-                onPressed: () async {
-                  final newAmount = int.tryParse(amountCtrl.text.trim());
-                  if (newAmount == null || newAmount <= 0) {
-                    ScaffoldMessenger.of(ctx).showSnackBar(const SnackBar(content: Text('Montant invalide')));
-                    return;
-                  }
-                  Navigator.pop(ctx);
-                  bool success = await PaymentService.initiatePayment(newAmount, _generalProjectId, localPaymentMethod);
-                  if (success) {
-                    await _fetchPaymentHistory(); // ✅ mise à jour du reçu
-                    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Redirection vers la page de paiement...')));
-                  } else {
-                    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Erreur lors de l’initiation du paiement')));
-                  }
-                },
-                child: const Text('Payer'),
-              ),
-            ],
-          );
-        },
-      ),
+            );
+          },
+        );
+      },
     );
   }
 
@@ -1087,13 +1155,14 @@ class _HomeScreenState extends State<HomeScreen> {
                       ),
                       const SizedBox(height: 24),
                       const Text('Historique des engagements', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Color(0xFF5D3A1A))),
-                      const SizedBox(height: 8),
+                      const SizedBox(height: 12),
                       _recurringDonations.isEmpty && _serviceCommitments.isEmpty
                           ? const Card(child: Padding(padding: EdgeInsets.all(12), child: Text('Aucun engagement honoré pour le moment')))
                           : Column(
                               children: [
                                 if (_recurringDonations.isNotEmpty) ...[
                                   const Text('Dons récurrents', style: TextStyle(fontWeight: FontWeight.bold)),
+                                  const SizedBox(height: 8),
                                   ..._recurringDonations.map((d) => Card(
                                     margin: const EdgeInsets.only(bottom: 8),
                                     child: ListTile(title: Text('${d['amount']} FCFA'), subtitle: Text('${_formatDate(d['createdAt'])} - ${d['status']}'), trailing: Chip(label: Text(d['status']))),
@@ -1102,6 +1171,7 @@ class _HomeScreenState extends State<HomeScreen> {
                                 if (_serviceCommitments.isNotEmpty) ...[
                                   const SizedBox(height: 12),
                                   const Text('Engagements en attente', style: TextStyle(fontWeight: FontWeight.bold)),
+                                  const SizedBox(height: 8),
                                   ..._serviceCommitments.map((c) => Card(
                                     margin: const EdgeInsets.only(bottom: 8),
                                     child: Column(
@@ -1221,7 +1291,7 @@ class _HomeScreenState extends State<HomeScreen> {
               decoration: const InputDecoration(labelText: 'Moyen de paiement', prefixIcon: Icon(Icons.payment)),
               items: _paymentMethods.map((method) => DropdownMenuItem(
                 value: method,
-                child: Text(_getPaymentMethodLabel(method)),
+                child: _getPaymentMethodWidget(method),
               )).toList(),
               onChanged: (value) {
                 setState(() {
@@ -1243,6 +1313,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   onPressed: () async {
                     final TextEditingController amountCtrl = TextEditingController(text: amountValue.toString());
                     final String localMethod = _selectedPaymentMethod;
+                    bool isPaying = false;
                     await showDialog(
                       context: context,
                       builder: (ctx2) => AlertDialog(
@@ -1261,7 +1332,7 @@ class _HomeScreenState extends State<HomeScreen> {
                               decoration: const InputDecoration(labelText: 'Moyen de paiement', prefixIcon: Icon(Icons.payment)),
                               items: _paymentMethods.map((method) => DropdownMenuItem(
                                 value: method,
-                                child: Text(_getPaymentMethodLabel(method)),
+                                child: _getPaymentMethodWidget(method),
                               )).toList(),
                               onChanged: (value) {},
                             ),
@@ -1269,23 +1340,34 @@ class _HomeScreenState extends State<HomeScreen> {
                         ),
                         actions: [
                           TextButton(onPressed: () => Navigator.pop(ctx2), child: const Text('Annuler')),
-                          ElevatedButton(
-                            onPressed: () async {
-                              final newAmount = int.tryParse(amountCtrl.text.trim());
-                              if (newAmount == null || newAmount <= 0) {
-                                ScaffoldMessenger.of(ctx2).showSnackBar(const SnackBar(content: Text('Montant invalide')));
-                                return;
-                              }
-                              bool success = await PaymentService.initiatePayment(newAmount, _generalProjectId, localMethod);
-                              Navigator.pop(ctx2);
-                              if (success) {
-                                await _fetchPaymentHistory(); // ✅ mise à jour du reçu
-                                ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Redirection vers la page de paiement...')));
-                              } else {
-                                ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Erreur paiement')));
-                              }
+                          StatefulBuilder(
+                            builder: (context, setStateBtn) {
+                              return ElevatedButton(
+                                onPressed: isPaying
+                                    ? null
+                                    : () async {
+                                        setStateBtn(() => isPaying = true);
+                                        final double amountDouble = double.tryParse(amountCtrl.text.trim()) ?? 0;
+                                        final int newAmount = amountDouble.toInt();
+                                        if (newAmount <= 0) {
+                                          ScaffoldMessenger.of(ctx2).showSnackBar(const SnackBar(content: Text('Montant invalide')));
+                                          setStateBtn(() => isPaying = false);
+                                          return;
+                                        }
+                                        final success = await PaymentService.initiatePayment(newAmount, _generalProjectId, localMethod, description: 'Fonctionnement de l\'AMI');
+                                        Navigator.pop(ctx2);
+                                        if (success) {
+                                          await _fetchPaymentHistory();
+                                          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Redirection vers la page de paiement...')));
+                                        } else {
+                                          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Erreur paiement')));
+                                        }
+                                      },
+                                child: isPaying
+                                    ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2))
+                                    : const Text('Payer'),
+                              );
                             },
-                            child: const Text('Payer'),
                           ),
                         ],
                       ),

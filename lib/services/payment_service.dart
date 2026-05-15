@@ -4,7 +4,7 @@ import 'package:url_launcher/url_launcher.dart';
 import 'auth_service.dart';
 
 class PaymentService {
-  static Future<bool> initiatePayment(int amount, String projectId, String paymentMethod) async {
+  static Future<bool> initiatePayment(int amount, String projectId, String paymentMethod, {String? description}) async {
     final token = await AuthService.getToken();
     if (token == null) return false;
 
@@ -20,6 +20,7 @@ class PaymentService {
           'project_id': projectId,
           'is_anonymous': false,
           'paymentMethod': paymentMethod,
+          if (description != null) 'description': description,
         }),
       );
 
