@@ -4,7 +4,12 @@ import 'dart:convert';
 
 class AuthService {
   static const String _tokenKey = 'user_token';
-  static const String baseUrl = 'https://ami-backend-gvuw.onrender.com'; // Backend Render
+  
+  // 🔧 Pour les tests en local (backend sur votre PC)
+  // static const String baseUrl = 'http://localhost:5000';
+  
+  // 🌐 Pour la production (backend sur Render)
+  static const String baseUrl = 'https://ami-backend-gvuw.onrender.com';
 
   static Future<void> saveToken(String token) async {
     final prefs = await SharedPreferences.getInstance();
@@ -26,7 +31,7 @@ class AuthService {
     if (token == null) return false;
     try {
       final response = await http.get(
-        Uri.parse('$baseUrl/api/auth/me'), // ✅ route corrigée
+        Uri.parse('$baseUrl/api/auth/me'),
         headers: {'Authorization': 'Bearer $token'},
       );
       return response.statusCode == 200;

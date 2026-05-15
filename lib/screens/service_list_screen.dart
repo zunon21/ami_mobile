@@ -2,9 +2,10 @@
 import 'package:http/http.dart' as http;
 import 'dart:convert';
 import '../services/auth_service.dart';
+import '../services/payment_service.dart';
 
 class ServiceListScreen extends StatefulWidget {
-  final String categoryName; // ex: 'Champs', 'Projets', etc.
+  final String categoryName;
 
   const ServiceListScreen({Key? key, required this.categoryName}) : super(key: key);
 
@@ -22,11 +23,26 @@ class _ServiceListScreenState extends State<ServiceListScreen> {
   String _selectedPeriodicity = 'Mensuel';
   bool _isLoading = false;
 
+  final List<String> _paymentMethods = ['wave', 'orange', 'mtn', 'moov', 'djamo'];
+  String _selectedPaymentMethod = 'wave';
+  final String _generalProjectId = '11111111-1111-1111-1111-111111111111';
+
   TextEditingController? _reasonController;
   String? _selectedEcominType;
   final List<String> _ecominTypes = ['Adolescents', 'Benjamins', 'Adultes'];
 
   final List<String> _periodicities = ['Mensuel', 'Bimensuel', 'Trimestriel', 'Semestriel', 'Annuel', 'Ponctuel'];
+
+  String _getPaymentMethodLabel(String method) {
+    switch (method) {
+      case 'wave': return 'WAVE';
+      case 'orange': return 'ORANGE';
+      case 'mtn': return 'MTN';
+      case 'moov': return 'MOOV';
+      case 'djamo': return 'CARTES BANCAIRES';
+      default: return method.toUpperCase();
+    }
+  }
 
   String _mapPeriodicityToBackend(String periodicity) {
     switch (periodicity.toLowerCase()) {
@@ -35,7 +51,6 @@ class _ServiceListScreenState extends State<ServiceListScreen> {
     }
   }
 
-  // Fonction de normalisation (minuscules, suppression des accents)
   String _normalize(String s) {
     return s.toLowerCase()
         .replaceAll(RegExp(r'[éèêë]'), 'e')
@@ -53,7 +68,6 @@ class _ServiceListScreenState extends State<ServiceListScreen> {
     _fetchItems();
   }
 
-  // Récupération des items pour la catégorie depuis l'API
   Future<void> _fetchItems() async {
     final token = await AuthService.getToken();
     if (token == null) return;
@@ -83,7 +97,6 @@ class _ServiceListScreenState extends State<ServiceListScreen> {
     }
   }
 
-  // Rafraîchissement manuel (pull-to-refresh)
   Future<void> _onRefresh() async {
     await _fetchItems();
   }
@@ -116,21 +129,10 @@ class _ServiceListScreenState extends State<ServiceListScreen> {
 
     try {
       if (isDonPonctuel) {
-        final response = await http.post(
-          Uri.parse('${AuthService.baseUrl}/api/donations/initiate'),
-          headers: {'Content-Type': 'application/json', 'Authorization': 'Bearer $token'},
-          body: jsonEncode({
-            'project_id': '11111111-1111-1111-1111-111111111111',
-            'amount': amount.toInt(),
-            'is_anonymous': false,
-            'donation_type': 'one_time'
-          }),
-        );
+        bool success = await PaymentService.initiatePayment(amount.toInt(), _generalProjectId, _selectedPaymentMethod);
         Navigator.pop(context);
-        if (response.statusCode == 200) {
-          final data = jsonDecode(response.body);
-          final checkoutUrl = data['checkout_url'];
-          ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Paiement : $checkoutUrl')));
+        if (success) {
+          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Redirection vers la page de paiement...')));
         } else {
           ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Erreur initiation paiement')));
         }
@@ -201,6 +203,8 @@ class _ServiceListScreenState extends State<ServiceListScreen> {
 
     final bool isEcomin = (widget.categoryName == 'Activités' && itemName == 'ECOMIN');
 
+    String localPaymentMethod = _selectedPaymentMethod;
+
     showDialog(
       context: context,
       builder: (ctx) {
@@ -236,7 +240,7 @@ class _ServiceListScreenState extends State<ServiceListScreen> {
                   const SizedBox(height: 12),
                   TextField(
                     controller: _reasonController!,
-                    decoration: const InputDecoration(labelText: 'Motifs du don', prefixIcon: Icon(Icons.edit)), // (optionnel) retiré
+                    decoration: const InputDecoration(labelText: 'Motifs du don', prefixIcon: Icon(Icons.edit)),
                   ),
                   const SizedBox(height: 12),
                   DropdownButtonFormField<String>(
@@ -245,6 +249,22 @@ class _ServiceListScreenState extends State<ServiceListScreen> {
                     items: _periodicities.map((p) => DropdownMenuItem(value: p, child: Text(p))).toList(),
                     onChanged: (v) => setModalState(() => _selectedPeriodicity = v!),
                   ),
+                  if (isDonPonctuel) ...[
+                    const SizedBox(height: 12),
+                    DropdownButtonFormField<String>(
+                      value: localPaymentMethod,
+                      decoration: const InputDecoration(labelText: 'Moyen de paiement', prefixIcon: Icon(Icons.payment)),
+                      items: _paymentMethods.map((method) => DropdownMenuItem(
+                        value: method,
+                        child: Text(_getPaymentMethodLabel(method)),
+                      )).toList(),
+                      onChanged: (value) {
+                        setModalState(() {
+                          localPaymentMethod = value!;
+                        });
+                      },
+                    ),
+                  ],
                 ],
               ),
               actions: [
@@ -255,14 +275,17 @@ class _ServiceListScreenState extends State<ServiceListScreen> {
                 ElevatedButton(
                   onPressed: _isLoading
                       ? null
-                      : () => _saveCommitment(
+                      : () async {
+                          _selectedPaymentMethod = localPaymentMethod;
+                          await _saveCommitment(
                             itemName,
                             reasonValue: _reasonController?.text.trim(),
                             ecominType: _selectedEcominType,
-                          ),
+                          );
+                        },
                   child: _isLoading
                       ? const CircularProgressIndicator()
-                      : Text(isDonPonctuel ? 'Procéder au paiement' : 'Enregistrer'),
+                      : Text(_selectedPeriodicity == 'Ponctuel' ? 'Procéder au paiement' : 'Enregistrer'),
                 ),
               ],
             );
@@ -318,7 +341,12 @@ class _ServiceListScreenState extends State<ServiceListScreen> {
               const SizedBox(height: 16),
               Expanded(
                 child: _filteredItems.isEmpty
-                    ? const Center(child: Text('Aucun élément trouvé'))
+                    ? const Center(
+                        child: Text(
+                          'Chargement des engagements en cours…\nVeuillez patienter quelques minutes.',
+                          textAlign: TextAlign.center,
+                        ),
+                      )
                     : ListView.builder(
                         itemCount: _filteredItems.length,
                         itemBuilder: (ctx, index) {

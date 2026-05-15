@@ -64,7 +64,6 @@ class _LoginScreenState extends State<LoginScreen> {
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
         final code = data['code'];
-        // Afficher le code à l'utilisateur
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('Votre code OTP : $code'),
@@ -187,7 +186,7 @@ class _LoginScreenState extends State<LoginScreen> {
               Image.asset('assets/images/logo.png', height: 80),
               const SizedBox(height: 16),
               if (_step == 'phone') ...[
-                Text('Bienvenue sur Partenaire De L\'AMI', style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: Color(0xFF2C1A0C))),
+                Text('Bienvenue sur PARTENAIRE DE L\'AMI', style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: Color(0xFF2C1A0C))),
                 const SizedBox(height: 12),
                 Text('Entrez votre numéro de téléphone', style: TextStyle(fontSize: 14, color: Colors.grey[600])),
                 const SizedBox(height: 20),
