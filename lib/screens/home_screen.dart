@@ -39,15 +39,14 @@ class _HomeScreenState extends State<HomeScreen> {
   // Couleurs pour les méthodes de paiement
   Color _getPaymentMethodColor(String method) {
     switch (method) {
-      case 'wave': return const Color(0xFF00B2FF); // Bleu Wave
-      case 'orange': return const Color(0xFFFF5C00); // Orange
-      case 'mtn': return const Color(0xFFF4A300); // Jaune MTN
-      case 'moov': return const Color(0xFF00A651); // Vert Moov
-      default: return const Color(0xFF5D3A1A); // Marron pour CARTES BANCAIRES
+      case 'wave': return const Color(0xFF00B2FF);
+      case 'orange': return const Color(0xFFFF5C00);
+      case 'mtn': return const Color(0xFFF4A300);
+      case 'moov': return const Color(0xFF00A651);
+      default: return const Color(0xFF5D3A1A);
     }
   }
 
-  // Libellé et couleur
   Widget _getPaymentMethodWidget(String method) {
     return Text(
       _getPaymentMethodLabel(method),
@@ -151,7 +150,6 @@ class _HomeScreenState extends State<HomeScreen> {
     }
   }
 
-  // ✅ Ne garde que les paiements réussis et les trie par date décroissante
   Future<void> _fetchPaymentHistory() async {
     final token = await AuthService.getToken();
     if (token == null) return;
@@ -162,7 +160,6 @@ class _HomeScreenState extends State<HomeScreen> {
       );
       if (response.statusCode == 200) {
         final List<dynamic> all = jsonDecode(response.body);
-        // ✅ Filtrer les paiements réussis
         final successful = all.where((d) => d['status'] == 'success').toList();
         successful.sort((a, b) => DateTime.parse(b['createdAt']).compareTo(DateTime.parse(a['createdAt'])));
         setState(() {
@@ -207,7 +204,6 @@ class _HomeScreenState extends State<HomeScreen> {
                             final DateTime dateTime = DateTime.parse(payment['createdAt']);
                             final String formattedDate = '${dateTime.day}/${dateTime.month}/${dateTime.year}';
                             final String formattedTime = '${dateTime.hour.toString().padLeft(2, '0')}:${dateTime.minute.toString().padLeft(2, '0')}';
-                            // Utiliser la description stockée ou un titre par défaut
                             String title = payment['description'] ?? 'Don AMI';
                             return Card(
                               margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
@@ -320,7 +316,18 @@ class _HomeScreenState extends State<HomeScreen> {
                               setStateModal(() => isPaying = false);
                               return;
                             }
-                            final success = await PaymentService.initiatePayment(amount, _generalProjectId, localPaymentMethod, description: 'Structures et Organisations');
+                            final extraData = {
+                              'organizationName': orgName,
+                              'destination': destinationController.text.trim(),
+                              'reason': reasonController.text.trim(),
+                            };
+                            final success = await PaymentService.initiatePayment(
+                              amount,
+                              _generalProjectId,
+                              localPaymentMethod,
+                              description: 'Structures et Organisations',
+                              extraData: extraData,
+                            );
                             Navigator.pop(ctx);
                             if (success) {
                               await _fetchPaymentHistory();
@@ -445,7 +452,12 @@ class _HomeScreenState extends State<HomeScreen> {
                               setStateDialog(() => isPaying = false);
                               return;
                             }
-                            final success = await PaymentService.initiatePayment(amount.toInt(), _generalProjectId, localPaymentMethod, description: 'Fonctionnement de l\'AMI');
+                            final success = await PaymentService.initiatePayment(
+                              amount.toInt(),
+                              _generalProjectId,
+                              localPaymentMethod,
+                              description: 'Fonctionnement de l\'AMI',
+                            );
                             Navigator.pop(ctx);
                             _isModalOpen = false;
                             if (success) {
@@ -539,7 +551,12 @@ class _HomeScreenState extends State<HomeScreen> {
                               setStateModal(() => isPaying = false);
                               return;
                             }
-                            final success = await PaymentService.initiatePayment(amount, projectId, localPaymentMethod, description: title);
+                            final success = await PaymentService.initiatePayment(
+                              amount,
+                              projectId,
+                              localPaymentMethod,
+                              description: title,
+                            );
                             Navigator.pop(ctx);
                             if (success) {
                               await _fetchPaymentHistory();
@@ -689,7 +706,15 @@ class _HomeScreenState extends State<HomeScreen> {
     }
     try {
       if (isDonPonctuel) {
-        final success = await PaymentService.initiatePayment(amount, _generalProjectId, paymentMethod, description: 'Missionnaire - $name');
+        // Ajout du motif dans extraData
+        final extraData = motive.isNotEmpty ? {'reason': motive} : null;
+        final success = await PaymentService.initiatePayment(
+          amount,
+          _generalProjectId,
+          paymentMethod,
+          description: 'Missionnaire - $name',
+          extraData: extraData,
+        );
         Navigator.pop(ctx);
         if (success) {
           await _fetchPaymentHistory();
@@ -972,7 +997,12 @@ class _HomeScreenState extends State<HomeScreen> {
                             setStateDialog(() => isPaying = false);
                             return;
                           }
-                          final success = await PaymentService.initiatePayment(newAmount, _generalProjectId, localPaymentMethod, description: description);
+                          final success = await PaymentService.initiatePayment(
+                            newAmount,
+                            _generalProjectId,
+                            localPaymentMethod,
+                            description: description,
+                          );
                           if (!mounted) return;
                           Navigator.pop(ctx);
                           if (success) {
@@ -1354,7 +1384,12 @@ class _HomeScreenState extends State<HomeScreen> {
                                           setStateBtn(() => isPaying = false);
                                           return;
                                         }
-                                        final success = await PaymentService.initiatePayment(newAmount, _generalProjectId, localMethod, description: 'Fonctionnement de l\'AMI');
+                                        final success = await PaymentService.initiatePayment(
+                                          newAmount,
+                                          _generalProjectId,
+                                          localMethod,
+                                          description: 'Fonctionnement de l\'AMI',
+                                        );
                                         Navigator.pop(ctx2);
                                         if (success) {
                                           await _fetchPaymentHistory();
