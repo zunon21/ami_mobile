@@ -129,7 +129,25 @@ class _ServiceListScreenState extends State<ServiceListScreen> {
 
     try {
       if (isDonPonctuel) {
-        bool success = await PaymentService.initiatePayment(amount.toInt(), _generalProjectId, _selectedPaymentMethod);
+        // Construction de la description
+        String description = '${widget.categoryName} - $itemName';
+        // Construction du extraData avec le motif
+        Map<String, dynamic>? extraData;
+        String reason = reasonValue ?? '';
+        if (widget.categoryName == 'Activités' && itemName == 'ECOMIN' && ecominType != null && ecominType.isNotEmpty) {
+          reason = 'Ecomin : $ecominType' + (reason.isNotEmpty ? ' - $reason' : '');
+        }
+        if (reason.isNotEmpty) {
+          extraData = {'reason': reason};
+        }
+
+        bool success = await PaymentService.initiatePayment(
+          amount.toInt(),
+          _generalProjectId,
+          _selectedPaymentMethod,
+          description: description,
+          extraData: extraData,
+        );
         Navigator.pop(context);
         if (success) {
           ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Redirection vers la page de paiement...')));
