@@ -129,6 +129,8 @@ class _ServiceListScreenState extends State<ServiceListScreen> {
 
     try {
       if (isDonPonctuel) {
+        // Calcul du total avec frais
+        final total = PaymentService.calculateTotalWithFees(amount.toInt());
         // Construction de la description
         String description = '${widget.categoryName} - $itemName';
         // Construction du extraData avec le motif
@@ -142,7 +144,7 @@ class _ServiceListScreenState extends State<ServiceListScreen> {
         }
 
         bool success = await PaymentService.initiatePayment(
-          amount.toInt(),
+          total,
           _generalProjectId,
           _selectedPaymentMethod,
           description: description,
@@ -229,6 +231,12 @@ class _ServiceListScreenState extends State<ServiceListScreen> {
         return StatefulBuilder(
           builder: (context, setModalState) {
             bool isDonPonctuel = (_selectedPeriodicity == 'Ponctuel');
+            int currentAmount = 0;
+            int totalWithFees = 0;
+            void updateTotal() {
+              currentAmount = int.tryParse(_amountController.text) ?? 0;
+              totalWithFees = PaymentService.calculateTotalWithFees(currentAmount);
+            }
             return AlertDialog(
               title: Text(modalTitle),
               content: Column(
@@ -238,6 +246,7 @@ class _ServiceListScreenState extends State<ServiceListScreen> {
                     controller: _amountController,
                     decoration: const InputDecoration(labelText: 'Montant (FCFA)'),
                     keyboardType: TextInputType.number,
+                    onChanged: (val) => setModalState(() => updateTotal()),
                   ),
                   const SizedBox(height: 12),
                   if (!isDonPonctuel)
@@ -261,6 +270,12 @@ class _ServiceListScreenState extends State<ServiceListScreen> {
                     decoration: const InputDecoration(labelText: 'Motifs du don', prefixIcon: Icon(Icons.edit)),
                   ),
                   const SizedBox(height: 12),
+                  if (isDonPonctuel && currentAmount > 0) ...[
+                    Text('Frais (1,5%) : ${(currentAmount * 0.015).round()} FCFA'),
+                    const SizedBox(height: 4),
+                    Text('Total à payer : $totalWithFees FCFA', style: const TextStyle(fontWeight: FontWeight.bold)),
+                    const SizedBox(height: 8),
+                  ],
                   DropdownButtonFormField<String>(
                     value: _selectedPeriodicity,
                     decoration: const InputDecoration(labelText: 'Périodicité'),

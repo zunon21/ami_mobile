@@ -4,12 +4,19 @@ import 'package:url_launcher/url_launcher.dart';
 import 'auth_service.dart';
 
 class PaymentService {
+  // Calcule le montant total (don + frais de 1,5%)
+  static int calculateTotalWithFees(int amount) {
+    if (amount <= 0) return 0;
+    double total = amount + (amount * 0.015);
+    return total.round(); // Arrondi à l'entier le plus proche
+  }
+
   static Future<bool> initiatePayment(
     int amount,
     String projectId,
     String paymentMethod, {
     String? description,
-    Map<String, dynamic>? extraData, // ← nouveau paramètre
+    Map<String, dynamic>? extraData,
   }) async {
     final token = await AuthService.getToken();
     if (token == null) return false;

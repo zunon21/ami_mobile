@@ -241,6 +241,12 @@ class _HomeScreenState extends State<HomeScreen> {
       builder: (ctx) {
         return StatefulBuilder(
           builder: (context, setStateModal) {
+            int currentAmount = 0;
+            int totalWithFees = 0;
+            void updateTotal() {
+              currentAmount = int.tryParse(amountController.text) ?? 0;
+              totalWithFees = PaymentService.calculateTotalWithFees(currentAmount);
+            }
             return Padding(
               padding: EdgeInsets.only(
                 bottom: MediaQuery.of(ctx).viewInsets.bottom,
@@ -273,6 +279,7 @@ class _HomeScreenState extends State<HomeScreen> {
                     controller: amountController,
                     decoration: const InputDecoration(labelText: 'Montant versé (FCFA)', prefixIcon: Icon(Icons.money)),
                     keyboardType: TextInputType.number,
+                    onChanged: (val) => setStateModal(() => updateTotal()),
                   ),
                   const SizedBox(height: 12),
                   TextField(
@@ -285,6 +292,12 @@ class _HomeScreenState extends State<HomeScreen> {
                     decoration: const InputDecoration(labelText: 'Motifs du don', prefixIcon: Icon(Icons.edit)),
                   ),
                   const SizedBox(height: 12),
+                  if (currentAmount > 0) ...[
+                    Text('Frais (1,5%) : ${(currentAmount * 0.015).round()} FCFA'),
+                    const SizedBox(height: 4),
+                    Text('Total à payer : $totalWithFees FCFA', style: const TextStyle(fontWeight: FontWeight.bold)),
+                    const SizedBox(height: 8),
+                  ],
                   DropdownButtonFormField<String>(
                     value: localPaymentMethod,
                     decoration: const InputDecoration(labelText: 'Moyen de paiement', prefixIcon: Icon(Icons.payment)),
@@ -316,13 +329,14 @@ class _HomeScreenState extends State<HomeScreen> {
                               setStateModal(() => isPaying = false);
                               return;
                             }
+                            final total = PaymentService.calculateTotalWithFees(amount);
                             final extraData = {
                               'organizationName': orgName,
                               'destination': destinationController.text.trim(),
                               'reason': reasonController.text.trim(),
                             };
                             final success = await PaymentService.initiatePayment(
-                              amount,
+                              total,
                               _generalProjectId,
                               localPaymentMethod,
                               description: 'Structures et Organisations',
@@ -381,6 +395,12 @@ class _HomeScreenState extends State<HomeScreen> {
         return StatefulBuilder(
           builder: (context, setStateDialog) {
             bool isDonPonctuel = (_selectedPeriodicity == 'Ponctuel');
+            int currentAmount = 0;
+            int totalWithFees = 0;
+            void updateTotal() {
+              currentAmount = int.tryParse(_amountController.text) ?? 0;
+              totalWithFees = PaymentService.calculateTotalWithFees(currentAmount);
+            }
             return AlertDialog(
               title: Text(isEditing ? 'Modifier le fonctionnement de l\'AMI' : 'Fonctionnement de l\'AMI'),
               content: Column(
@@ -390,6 +410,7 @@ class _HomeScreenState extends State<HomeScreen> {
                     controller: _amountController,
                     decoration: InputDecoration(labelText: 'Montant (FCFA)'),
                     keyboardType: TextInputType.number,
+                    onChanged: (val) => setStateDialog(() => updateTotal()),
                   ),
                   const SizedBox(height: 12),
                   if (!isDonPonctuel)
@@ -399,6 +420,12 @@ class _HomeScreenState extends State<HomeScreen> {
                       keyboardType: TextInputType.number,
                     ),
                   const SizedBox(height: 12),
+                  if (isDonPonctuel && currentAmount > 0) ...[
+                    Text('Frais (1,5%) : ${(currentAmount * 0.015).round()} FCFA'),
+                    const SizedBox(height: 4),
+                    Text('Total à payer : $totalWithFees FCFA', style: const TextStyle(fontWeight: FontWeight.bold)),
+                    const SizedBox(height: 8),
+                  ],
                   DropdownButtonFormField<String>(
                     value: _selectedPeriodicity,
                     decoration: InputDecoration(labelText: 'Périodicité'),
@@ -452,8 +479,9 @@ class _HomeScreenState extends State<HomeScreen> {
                               setStateDialog(() => isPaying = false);
                               return;
                             }
+                            final total = PaymentService.calculateTotalWithFees(amount.toInt());
                             final success = await PaymentService.initiatePayment(
-                              amount.toInt(),
+                              total,
                               _generalProjectId,
                               localPaymentMethod,
                               description: 'Fonctionnement de l\'AMI',
@@ -513,6 +541,12 @@ class _HomeScreenState extends State<HomeScreen> {
       builder: (ctx) {
         return StatefulBuilder(
           builder: (context, setStateModal) {
+            int currentAmount = 0;
+            int totalWithFees = 0;
+            void updateTotal() {
+              currentAmount = int.tryParse(amountController.text) ?? 0;
+              totalWithFees = PaymentService.calculateTotalWithFees(currentAmount);
+            }
             return Padding(
               padding: EdgeInsets.only(bottom: MediaQuery.of(ctx).viewInsets.bottom, left: 16, right: 16, top: 16),
               child: Column(
@@ -524,8 +558,15 @@ class _HomeScreenState extends State<HomeScreen> {
                     controller: amountController,
                     decoration: InputDecoration(labelText: 'Montant (FCFA)'),
                     keyboardType: TextInputType.number,
+                    onChanged: (val) => setStateModal(() => updateTotal()),
                   ),
                   const SizedBox(height: 12),
+                  if (currentAmount > 0) ...[
+                    Text('Frais (1,5%) : ${(currentAmount * 0.015).round()} FCFA'),
+                    const SizedBox(height: 4),
+                    Text('Total à payer : $totalWithFees FCFA', style: const TextStyle(fontWeight: FontWeight.bold)),
+                    const SizedBox(height: 8),
+                  ],
                   DropdownButtonFormField<String>(
                     value: localPaymentMethod,
                     decoration: const InputDecoration(labelText: 'Moyen de paiement', prefixIcon: Icon(Icons.payment)),
@@ -551,8 +592,9 @@ class _HomeScreenState extends State<HomeScreen> {
                               setStateModal(() => isPaying = false);
                               return;
                             }
+                            final total = PaymentService.calculateTotalWithFees(amount);
                             final success = await PaymentService.initiatePayment(
-                              amount,
+                              total,
                               projectId,
                               localPaymentMethod,
                               description: title,
@@ -596,6 +638,12 @@ class _HomeScreenState extends State<HomeScreen> {
         return StatefulBuilder(
           builder: (context, setStateModal) {
             bool isDonPonctuel = (selectedPeriodicity == 'Ponctuel');
+            int currentAmount = 0;
+            int totalWithFees = 0;
+            void updateTotal() {
+              currentAmount = int.tryParse(amountController.text) ?? 0;
+              totalWithFees = PaymentService.calculateTotalWithFees(currentAmount);
+            }
             return Padding(
               padding: EdgeInsets.only(
                 bottom: MediaQuery.of(ctx).viewInsets.bottom,
@@ -610,7 +658,12 @@ class _HomeScreenState extends State<HomeScreen> {
                   const SizedBox(height: 8),
                   const Text('Engagez-vous à soutenir financièrement un missionnaire', style: TextStyle(fontSize: 14, color: Colors.grey)),
                   const SizedBox(height: 16),
-                  TextField(controller: amountController, decoration: const InputDecoration(labelText: 'Montant (FCFA)', prefixIcon: Icon(Icons.money)), keyboardType: TextInputType.number),
+                  TextField(
+                    controller: amountController,
+                    decoration: const InputDecoration(labelText: 'Montant (FCFA)', prefixIcon: Icon(Icons.money)),
+                    keyboardType: TextInputType.number,
+                    onChanged: (val) => setStateModal(() => updateTotal()),
+                  ),
                   const SizedBox(height: 12),
                   if (!isDonPonctuel)
                     Column(children: [
@@ -621,6 +674,12 @@ class _HomeScreenState extends State<HomeScreen> {
                   const SizedBox(height: 12),
                   TextField(controller: reasonController, decoration: const InputDecoration(labelText: 'Motifs du don', prefixIcon: Icon(Icons.edit))),
                   const SizedBox(height: 12),
+                  if (isDonPonctuel && currentAmount > 0) ...[
+                    Text('Frais (1,5%) : ${(currentAmount * 0.015).round()} FCFA'),
+                    const SizedBox(height: 4),
+                    Text('Total à payer : $totalWithFees FCFA', style: const TextStyle(fontWeight: FontWeight.bold)),
+                    const SizedBox(height: 8),
+                  ],
                   DropdownButtonFormField<String>(
                     value: selectedPeriodicity,
                     decoration: const InputDecoration(labelText: 'Périodicité'),
@@ -706,9 +765,10 @@ class _HomeScreenState extends State<HomeScreen> {
     }
     try {
       if (isDonPonctuel) {
+        final total = PaymentService.calculateTotalWithFees(amount);
         final extraData = motive.isNotEmpty ? {'reason': motive} : null;
         final success = await PaymentService.initiatePayment(
-          amount,
+          total,
           _generalProjectId,
           paymentMethod,
           description: 'Missionnaire - $name',
@@ -953,6 +1013,12 @@ class _HomeScreenState extends State<HomeScreen> {
       builder: (ctx) {
         return StatefulBuilder(
           builder: (context, setStateDialog) {
+            int currentAmount = 0;
+            int totalWithFees = 0;
+            void updateTotal() {
+              currentAmount = int.tryParse(amountCtrl.text) ?? 0;
+              totalWithFees = PaymentService.calculateTotalWithFees(currentAmount);
+            }
             return AlertDialog(
               title: const Text('Honorer l\'engagement'),
               content: Column(
@@ -962,8 +1028,15 @@ class _HomeScreenState extends State<HomeScreen> {
                     controller: amountCtrl,
                     decoration: const InputDecoration(labelText: 'Montant (FCFA)'),
                     keyboardType: TextInputType.number,
+                    onChanged: (val) => setStateDialog(() => updateTotal()),
                   ),
                   const SizedBox(height: 12),
+                  if (currentAmount > 0) ...[
+                    Text('Frais (1,5%) : ${(currentAmount * 0.015).round()} FCFA'),
+                    const SizedBox(height: 4),
+                    Text('Total à payer : $totalWithFees FCFA', style: const TextStyle(fontWeight: FontWeight.bold)),
+                    const SizedBox(height: 8),
+                  ],
                   DropdownButtonFormField<String>(
                     value: localPaymentMethod,
                     decoration: const InputDecoration(labelText: 'Moyen de paiement', prefixIcon: Icon(Icons.payment)),
@@ -996,8 +1069,9 @@ class _HomeScreenState extends State<HomeScreen> {
                             setStateDialog(() => isPaying = false);
                             return;
                           }
+                          final total = PaymentService.calculateTotalWithFees(newAmount);
                           final success = await PaymentService.initiatePayment(
-                            newAmount,
+                            total,
                             _generalProjectId,
                             localPaymentMethod,
                             description: description,
@@ -1354,6 +1428,9 @@ class _HomeScreenState extends State<HomeScreen> {
                               controller: amountCtrl,
                               decoration: InputDecoration(labelText: 'Montant (FCFA)'),
                               keyboardType: TextInputType.number,
+                              onChanged: (val) {
+                                // Recalculer le total si nécessaire (optionnel)
+                              },
                             ),
                             const SizedBox(height: 12),
                             DropdownButtonFormField<String>(
@@ -1383,8 +1460,9 @@ class _HomeScreenState extends State<HomeScreen> {
                                           setStateBtn(() => isPaying = false);
                                           return;
                                         }
+                                        final total = PaymentService.calculateTotalWithFees(newAmount);
                                         final success = await PaymentService.initiatePayment(
-                                          newAmount,
+                                          total,
                                           _generalProjectId,
                                           localMethod,
                                           description: 'Fonctionnement de l\'AMI',
