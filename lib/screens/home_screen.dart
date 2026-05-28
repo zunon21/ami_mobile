@@ -171,54 +171,181 @@ class _HomeScreenState extends State<HomeScreen> {
     }
   }
 
+  // NOUVELLE VERSION ÉLÉGANTE DU REÇU DE PAIEMENT
   void _showPaymentReceipt() {
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      backgroundColor: Colors.transparent,
       builder: (ctx) {
         return DraggableScrollableSheet(
           expand: false,
-          initialChildSize: 0.6,
+          initialChildSize: 0.7,
           maxChildSize: 0.9,
           minChildSize: 0.4,
           builder: (context, scrollController) {
-            return Column(
-              children: [
-                const Padding(
-                  padding: EdgeInsets.all(16),
-                  child: Text(
-                    'Reçu de paiement',
-                    style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: Color(0xFF5D3A1A)),
+            return Container(
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black26,
+                    blurRadius: 20,
+                    offset: Offset(0, -5),
                   ),
-                ),
-                const Divider(),
-                Expanded(
-                  child: _paymentHistory.isEmpty
-                      ? const Center(child: Text('Aucun paiement effectué'))
-                      : ListView.builder(
-                          controller: scrollController,
-                          itemCount: _paymentHistory.length,
-                          itemBuilder: (ctx, index) {
-                            final payment = _paymentHistory[index];
-                            final DateTime dateTime = DateTime.parse(payment['createdAt']);
-                            final String formattedDate = '${dateTime.day}/${dateTime.month}/${dateTime.year}';
-                            final String formattedTime = '${dateTime.hour.toString().padLeft(2, '0')}:${dateTime.minute.toString().padLeft(2, '0')}';
-                            String title = payment['description'] ?? 'Don AMI';
-                            return Card(
-                              margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-                              child: ListTile(
-                                leading: const Icon(Icons.receipt, color: Color(0xFFD4A017)),
-                                title: Text('$title - ${payment['amount']} FCFA'),
-                                subtitle: Text('$formattedDate, $formattedTime'),
-                                trailing: const Icon(Icons.chevron_right),
-                                onTap: () {},
-                              ),
-                            );
-                          },
-                        ),
-                ),
-              ],
+                ],
+              ),
+              child: Column(
+                children: [
+                  // Poignée de fermeture
+                  Container(
+                    margin: EdgeInsets.only(top: 12),
+                    width: 40,
+                    height: 4,
+                    decoration: BoxDecoration(
+                      color: Colors.grey[300],
+                      borderRadius: BorderRadius.circular(2),
+                    ),
+                  ),
+                  const Padding(
+                    padding: EdgeInsets.all(20),
+                    child: Text(
+                      'Reçu de paiement',
+                      style: TextStyle(
+                        fontSize: 24,
+                        fontWeight: FontWeight.bold,
+                        color: Color(0xFF5D3A1A),
+                      ),
+                    ),
+                  ),
+                  const Divider(height: 1, thickness: 1, color: Color(0xFFF0E5D8)),
+                  Expanded(
+                    child: _paymentHistory.isEmpty
+                        ? const Center(
+                            child: Text(
+                              'Aucun paiement effectué',
+                              style: TextStyle(color: Colors.grey, fontSize: 16),
+                            ),
+                          )
+                        : ListView.builder(
+                            controller: scrollController,
+                            padding: const EdgeInsets.all(16),
+                            itemCount: _paymentHistory.length,
+                            itemBuilder: (ctx, index) {
+                              final payment = _paymentHistory[index];
+                              final DateTime dateTime = DateTime.parse(payment['createdAt']);
+                              final String formattedDate =
+                                  '${dateTime.day}/${dateTime.month}/${dateTime.year}';
+                              final String formattedTime =
+                                  '${dateTime.hour.toString().padLeft(2, '0')}:${dateTime.minute.toString().padLeft(2, '0')}';
+                              final String title = payment['description'] ?? 'Don AMI';
+                              final double amount = (payment['amount'] is int)
+                                  ? (payment['amount'] as int).toDouble()
+                                  : payment['amount'].toDouble();
+                              return Container(
+                                margin: const EdgeInsets.only(bottom: 16),
+                                decoration: BoxDecoration(
+                                  color: Colors.white,
+                                  borderRadius: BorderRadius.circular(20),
+                                  boxShadow: [
+                                    BoxShadow(
+                                      color: Colors.grey.withOpacity(0.1),
+                                      blurRadius: 10,
+                                      offset: Offset(0, 4),
+                                    ),
+                                  ],
+                                  border: Border.all(
+                                    color: Color(0xFFFCE4B2),
+                                    width: 1,
+                                  ),
+                                ),
+                                child: Padding(
+                                  padding: const EdgeInsets.all(16),
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      Row(
+                                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                        children: [
+                                          Expanded(
+                                            child: Text(
+                                              title,
+                                              style: const TextStyle(
+                                                fontSize: 16,
+                                                fontWeight: FontWeight.w600,
+                                                color: Color(0xFF4A2E1B),
+                                              ),
+                                            ),
+                                          ),
+                                          Container(
+                                            padding: const EdgeInsets.symmetric(
+                                              horizontal: 12,
+                                              vertical: 6,
+                                            ),
+                                            decoration: BoxDecoration(
+                                              gradient: const LinearGradient(
+                                                colors: [Color(0xFFD4A017), Color(0xFFF57C00)],
+                                                begin: Alignment.topLeft,
+                                                end: Alignment.bottomRight,
+                                              ),
+                                              borderRadius: BorderRadius.circular(30),
+                                            ),
+                                            child: Text(
+                                              '${amount.toStringAsFixed(0)} FCFA',
+                                              style: const TextStyle(
+                                                color: Colors.white,
+                                                fontWeight: FontWeight.bold,
+                                                fontSize: 14,
+                                              ),
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                      const SizedBox(height: 12),
+                                      Row(
+                                        children: [
+                                          const Icon(
+                                            Icons.calendar_today,
+                                            size: 14,
+                                            color: Color(0xFFA88B6F),
+                                          ),
+                                          const SizedBox(width: 6),
+                                          Text(
+                                            formattedDate,
+                                            style: const TextStyle(
+                                              fontSize: 12,
+                                              color: Color(0xFFA88B6F),
+                                            ),
+                                          ),
+                                          const SizedBox(width: 16),
+                                          const Icon(
+                                            Icons.access_time,
+                                            size: 14,
+                                            color: Color(0xFFA88B6F),
+                                          ),
+                                          const SizedBox(width: 6),
+                                          Text(
+                                            formattedTime,
+                                            style: const TextStyle(
+                                              fontSize: 12,
+                                              color: Color(0xFFA88B6F),
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              );
+                            },
+                          ),
+                  ),
+                ],
+              ),
             );
           },
         );
