@@ -117,8 +117,9 @@ class _HomeScreenState extends State<HomeScreen> {
     final token = await AuthService.getToken();
     if (token == null) return;
     try {
+      // Utiliser la route protégée qui ne renvoie que les dons de l'utilisateur
       final response = await http.get(
-        Uri.parse('$_baseUrl/api/donations'),
+        Uri.parse('$_baseUrl/api/donations/my-donations'),
         headers: {'Authorization': 'Bearer $token'},
       );
       if (response.statusCode == 200) {
@@ -154,8 +155,9 @@ class _HomeScreenState extends State<HomeScreen> {
     final token = await AuthService.getToken();
     if (token == null) return;
     try {
+      // Utiliser la route protégée qui ne renvoie que les dons de l'utilisateur
       final response = await http.get(
-        Uri.parse('$_baseUrl/api/donations'),
+        Uri.parse('$_baseUrl/api/donations/my-donations'),
         headers: {'Authorization': 'Bearer $token'},
       );
       if (response.statusCode == 200) {
@@ -1129,7 +1131,7 @@ class _HomeScreenState extends State<HomeScreen> {
                       const SizedBox(height: 24),
                       Card(
                         elevation: 2,
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                        shape: RoundedRectangleBorder(borderRadius: Radius.circular(16)),
                         child: Padding(
                           padding: const EdgeInsets.all(12),
                           child: Column(
