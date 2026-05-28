@@ -11,11 +11,11 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-java@v4
         with:
-          distribution: 'temurin'   # au lieu de 'zulu' pour éviter l'erreur 520
+          distribution: 'temurin'
           java-version: '17'
       - uses: subosito/flutter-action@v2
         with:
-          flutter-version: '3.22.0'   # version stable recommandée
+          flutter-version: '3.27.0'   # compatible Dart >=3.6.0
       - run: flutter pub get
       - run: flutter build apk --release
       - uses: actions/upload-artifact@v4
