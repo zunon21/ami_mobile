@@ -219,9 +219,17 @@ class _LoginScreenState extends State<LoginScreen> {
                 const SizedBox(height: 12),
                 Text('Quelques informations supplémentaires', style: TextStyle(fontSize: 14, color: Colors.grey[600])),
                 const SizedBox(height: 24),
-                TextField(controller: _nameController, decoration: InputDecoration(labelText: 'Nom', prefixIcon: Icon(Icons.person, color: const Color(0xFFD4A017)), border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)))),
+                TextField(
+                  controller: _nameController,
+                  decoration: InputDecoration(labelText: 'Nom', prefixIcon: Icon(Icons.person, color: const Color(0xFFD4A017)), border: OutlineInputBorder(borderRadius: BorderRadius.circular(12))),
+                  keyboardType: TextInputType.text, // ← Correction
+                ),
                 const SizedBox(height: 16),
-                TextField(controller: _firstNameController, decoration: InputDecoration(labelText: 'Prénoms', prefixIcon: Icon(Icons.person_outline, color: const Color(0xFFD4A017)), border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)))),
+                TextField(
+                  controller: _firstNameController,
+                  decoration: InputDecoration(labelText: 'Prénoms', prefixIcon: Icon(Icons.person_outline, color: const Color(0xFFD4A017)), border: OutlineInputBorder(borderRadius: BorderRadius.circular(12))),
+                  keyboardType: TextInputType.text, // ← Correction
+                ),
                 const SizedBox(height: 16),
                 DropdownButtonFormField<String>(
                   value: _selectedGender,
