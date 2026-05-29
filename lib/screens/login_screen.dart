@@ -26,9 +26,6 @@ class _LoginScreenState extends State<LoginScreen> {
   String _tempToken = '';
   String _tempPhone = '';
 
-  // FocusNode pour le champ Nom (correction clavier)
-  final FocusNode _nameFocusNode = FocusNode();
-
   final List<Map<String, String>> _countries = [
     {'name': 'Côte d’Ivoire', 'code': '+225'},
     {'name': 'France', 'code': '+33'},
@@ -102,13 +99,8 @@ class _LoginScreenState extends State<LoginScreen> {
         final needsName = data['needs_name'] ?? false;
         if (needsName) {
           setState(() { _step = 'name'; _tempToken = token; });
-          // FORCER LA RÉINITIALISATION DU CLAVIER POUR LE CHAMP NOM
-          WidgetsBinding.instance.addPostFrameCallback((_) {
-            _nameFocusNode.unfocus();
-            Future.delayed(Duration(milliseconds: 100), () {
-              if (mounted) _nameFocusNode.requestFocus();
-            });
-          });
+          // On ferme le clavier et on ne demande pas le focus.
+          FocusScope.of(context).unfocus();
         } else {
           await AuthService.saveToken(token);
           setState(() => _status = 'Connexion réussie');
@@ -185,7 +177,14 @@ class _LoginScreenState extends State<LoginScreen> {
 
   @override
   void dispose() {
-    _nameFocusNode.dispose();
+    _nameController.dispose();
+    _firstNameController.dispose();
+    _ageController.dispose();
+    _cityController.dispose();
+    _professionController.dispose();
+    _churchController.dispose();
+    _phoneController.dispose();
+    _otpController.dispose();
     super.dispose();
   }
 
@@ -237,10 +236,10 @@ class _LoginScreenState extends State<LoginScreen> {
                 const SizedBox(height: 24),
                 TextField(
                   controller: _nameController,
-                  focusNode: _nameFocusNode,
                   decoration: InputDecoration(labelText: 'Nom', prefixIcon: Icon(Icons.person, color: const Color(0xFFD4A017)), border: OutlineInputBorder(borderRadius: BorderRadius.circular(12))),
                   keyboardType: TextInputType.text,
                   textInputAction: TextInputAction.next,
+                  // Pas d'autofocus
                 ),
                 const SizedBox(height: 16),
                 TextField(
