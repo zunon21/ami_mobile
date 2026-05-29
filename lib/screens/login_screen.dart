@@ -26,6 +26,9 @@ class _LoginScreenState extends State<LoginScreen> {
   String _tempToken = '';
   String _tempPhone = '';
 
+  // FocusNode pour le champ Âge (pour le focus automatique)
+  final FocusNode _ageFocusNode = FocusNode();
+
   final List<Map<String, String>> _countries = [
     {'name': 'Côte d’Ivoire', 'code': '+225'},
     {'name': 'France', 'code': '+33'},
@@ -99,8 +102,10 @@ class _LoginScreenState extends State<LoginScreen> {
         final needsName = data['needs_name'] ?? false;
         if (needsName) {
           setState(() { _step = 'name'; _tempToken = token; });
-          // On ferme le clavier et on ne demande pas le focus.
-          FocusScope.of(context).unfocus();
+          // Focus sur le champ Âge (clavier numérique, cohérent)
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            FocusScope.of(context).requestFocus(_ageFocusNode);
+          });
         } else {
           await AuthService.saveToken(token);
           setState(() => _status = 'Connexion réussie');
@@ -185,6 +190,7 @@ class _LoginScreenState extends State<LoginScreen> {
     _churchController.dispose();
     _phoneController.dispose();
     _otpController.dispose();
+    _ageFocusNode.dispose();
     super.dispose();
   }
 
@@ -239,7 +245,6 @@ class _LoginScreenState extends State<LoginScreen> {
                   decoration: InputDecoration(labelText: 'Nom', prefixIcon: Icon(Icons.person, color: const Color(0xFFD4A017)), border: OutlineInputBorder(borderRadius: BorderRadius.circular(12))),
                   keyboardType: TextInputType.text,
                   textInputAction: TextInputAction.next,
-                  // Pas d'autofocus
                 ),
                 const SizedBox(height: 16),
                 TextField(
@@ -256,7 +261,13 @@ class _LoginScreenState extends State<LoginScreen> {
                   onChanged: (v) => setState(() => _selectedGender = v),
                 ),
                 const SizedBox(height: 16),
-                TextField(controller: _ageController, decoration: InputDecoration(labelText: 'Âge', prefixIcon: Icon(Icons.cake, color: const Color(0xFFD4A017)), border: OutlineInputBorder(borderRadius: BorderRadius.circular(12))), keyboardType: TextInputType.number),
+                TextField(
+                  controller: _ageController,
+                  focusNode: _ageFocusNode,
+                  decoration: InputDecoration(labelText: 'Âge', prefixIcon: Icon(Icons.cake, color: const Color(0xFFD4A017)), border: OutlineInputBorder(borderRadius: BorderRadius.circular(12))),
+                  keyboardType: TextInputType.number,
+                  textInputAction: TextInputAction.next,
+                ),
                 const SizedBox(height: 16),
                 TextField(controller: _cityController, decoration: InputDecoration(labelText: 'Ville de résidence', prefixIcon: Icon(Icons.location_city, color: const Color(0xFFD4A017)), border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)))),
                 const SizedBox(height: 16),
