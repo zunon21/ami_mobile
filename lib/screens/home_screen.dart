@@ -171,7 +171,7 @@ class _HomeScreenState extends State<HomeScreen> {
     }
   }
 
-  // NOUVELLE VERSION ÉLÉGANTE DU REÇU DE PAIEMENT
+  // NOUVELLE VERSION ÉLÉGANTE DU REÇU DE PAIEMENT AVEC CONVERSION ROBUSTE
   void _showPaymentReceipt() {
     showModalBottomSheet(
       context: context,
@@ -243,9 +243,14 @@ class _HomeScreenState extends State<HomeScreen> {
                               final String formattedTime =
                                   '${dateTime.hour.toString().padLeft(2, '0')}:${dateTime.minute.toString().padLeft(2, '0')}';
                               final String title = payment['description'] ?? 'Don AMI';
-                              final double amount = (payment['amount'] is int)
-                                  ? (payment['amount'] as int).toDouble()
-                                  : payment['amount'].toDouble();
+                              // 🔧 Conversion robuste du montant (évite l'erreur .toDouble sur String)
+                              final double amount = () {
+                                final value = payment['amount'];
+                                if (value is int) return value.toDouble();
+                                if (value is double) return value;
+                                if (value is String) return double.tryParse(value) ?? 0.0;
+                                return 0.0;
+                              }();
                               return Container(
                                 margin: const EdgeInsets.only(bottom: 16),
                                 decoration: BoxDecoration(
