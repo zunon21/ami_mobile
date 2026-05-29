@@ -26,6 +26,9 @@ class _LoginScreenState extends State<LoginScreen> {
   String _tempToken = '';
   String _tempPhone = '';
 
+  // FocusNode pour le champ Nom (correction clavier)
+  final FocusNode _nameFocusNode = FocusNode();
+
   final List<Map<String, String>> _countries = [
     {'name': 'Côte d’Ivoire', 'code': '+225'},
     {'name': 'France', 'code': '+33'},
@@ -99,6 +102,13 @@ class _LoginScreenState extends State<LoginScreen> {
         final needsName = data['needs_name'] ?? false;
         if (needsName) {
           setState(() { _step = 'name'; _tempToken = token; });
+          // FORCER LA RÉINITIALISATION DU CLAVIER POUR LE CHAMP NOM
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            _nameFocusNode.unfocus();
+            Future.delayed(Duration(milliseconds: 100), () {
+              if (mounted) _nameFocusNode.requestFocus();
+            });
+          });
         } else {
           await AuthService.saveToken(token);
           setState(() => _status = 'Connexion réussie');
@@ -174,6 +184,12 @@ class _LoginScreenState extends State<LoginScreen> {
   }
 
   @override
+  void dispose() {
+    _nameFocusNode.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Colors.white,
@@ -221,14 +237,17 @@ class _LoginScreenState extends State<LoginScreen> {
                 const SizedBox(height: 24),
                 TextField(
                   controller: _nameController,
+                  focusNode: _nameFocusNode,
                   decoration: InputDecoration(labelText: 'Nom', prefixIcon: Icon(Icons.person, color: const Color(0xFFD4A017)), border: OutlineInputBorder(borderRadius: BorderRadius.circular(12))),
-                  keyboardType: TextInputType.text, // ← Correction
+                  keyboardType: TextInputType.text,
+                  textInputAction: TextInputAction.next,
                 ),
                 const SizedBox(height: 16),
                 TextField(
                   controller: _firstNameController,
                   decoration: InputDecoration(labelText: 'Prénoms', prefixIcon: Icon(Icons.person_outline, color: const Color(0xFFD4A017)), border: OutlineInputBorder(borderRadius: BorderRadius.circular(12))),
-                  keyboardType: TextInputType.text, // ← Correction
+                  keyboardType: TextInputType.text,
+                  textInputAction: TextInputAction.next,
                 ),
                 const SizedBox(height: 16),
                 DropdownButtonFormField<String>(
