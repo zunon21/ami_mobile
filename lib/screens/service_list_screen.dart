@@ -129,11 +129,8 @@ class _ServiceListScreenState extends State<ServiceListScreen> {
 
     try {
       if (isDonPonctuel) {
-        // Calcul du total avec frais
         final total = PaymentService.calculateTotalWithFees(amount.toInt());
-        // Construction de la description
         String description = '${widget.categoryName} - $itemName';
-        // Construction du extraData avec le motif
         Map<String, dynamic>? extraData;
         String reason = reasonValue ?? '';
         if (widget.categoryName == 'Activités' && itemName == 'ECOMIN' && ecominType != null && ecominType.isNotEmpty) {
@@ -220,13 +217,13 @@ class _ServiceListScreenState extends State<ServiceListScreen> {
     }
 
     _reasonController = TextEditingController();
-
     final bool isEcomin = (widget.categoryName == 'Activités' && itemName == 'ECOMIN');
-
     String localPaymentMethod = _selectedPaymentMethod;
 
-    showDialog(
+    showModalBottomSheet(
       context: context,
+      isScrollControlled: true,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
       builder: (ctx) {
         return StatefulBuilder(
           builder: (context, setModalState) {
@@ -237,90 +234,109 @@ class _ServiceListScreenState extends State<ServiceListScreen> {
               currentAmount = int.tryParse(_amountController.text) ?? 0;
               totalWithFees = PaymentService.calculateTotalWithFees(currentAmount);
             }
-            return AlertDialog(
-              title: Text(modalTitle),
-              content: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  TextField(
-                    controller: _amountController,
-                    decoration: const InputDecoration(labelText: 'Montant (FCFA)'),
-                    keyboardType: TextInputType.number,
-                    onChanged: (val) => setModalState(() => updateTotal()),
-                  ),
-                  const SizedBox(height: 12),
-                  if (!isDonPonctuel)
-                    TextField(
-                      controller: _dayController,
-                      decoration: const InputDecoration(labelText: 'Jour du mois (1-31)'),
-                      keyboardType: TextInputType.number,
-                    ),
-                  if (isEcomin) ...[
-                    const SizedBox(height: 12),
-                    DropdownButtonFormField<String>(
-                      value: _selectedEcominType,
-                      decoration: const InputDecoration(labelText: 'Quel Ecomin ?', prefixIcon: Icon(Icons.group)),
-                      items: _ecominTypes.map((e) => DropdownMenuItem(value: e, child: Text(e))).toList(),
-                      onChanged: (v) => setModalState(() => _selectedEcominType = v),
-                    ),
-                  ],
-                  const SizedBox(height: 12),
-                  TextField(
-                    controller: _reasonController!,
-                    decoration: const InputDecoration(labelText: 'Motifs du don', prefixIcon: Icon(Icons.edit)),
-                  ),
-                  const SizedBox(height: 12),
-                  if (isDonPonctuel && currentAmount > 0) ...[
-                    Text('Frais (1,5%) : ${(currentAmount * 0.015).round()} FCFA'),
-                    const SizedBox(height: 4),
-                    Text('Total à payer : $totalWithFees FCFA', style: const TextStyle(fontWeight: FontWeight.bold)),
-                    const SizedBox(height: 8),
-                  ],
-                  DropdownButtonFormField<String>(
-                    value: _selectedPeriodicity,
-                    decoration: const InputDecoration(labelText: 'Périodicité'),
-                    items: _periodicities.map((p) => DropdownMenuItem(value: p, child: Text(p))).toList(),
-                    onChanged: (v) => setModalState(() => _selectedPeriodicity = v!),
-                  ),
-                  if (isDonPonctuel) ...[
-                    const SizedBox(height: 12),
-                    DropdownButtonFormField<String>(
-                      value: localPaymentMethod,
-                      decoration: const InputDecoration(labelText: 'Moyen de paiement', prefixIcon: Icon(Icons.payment)),
-                      items: _paymentMethods.map((method) => DropdownMenuItem(
-                        value: method,
-                        child: Text(_getPaymentMethodLabel(method)),
-                      )).toList(),
-                      onChanged: (value) {
-                        setModalState(() {
-                          localPaymentMethod = value!;
-                        });
-                      },
-                    ),
-                  ],
-                ],
+            return Padding(
+              padding: EdgeInsets.only(
+                bottom: MediaQuery.of(ctx).viewInsets.bottom,
+                left: 16,
+                right: 16,
+                top: 16,
               ),
-              actions: [
-                TextButton(
-                  onPressed: () => Navigator.pop(ctx),
-                  child: const Text('Annuler'),
-                ),
-                ElevatedButton(
-                  onPressed: _isLoading
-                      ? null
-                      : () async {
-                          _selectedPaymentMethod = localPaymentMethod;
-                          await _saveCommitment(
-                            itemName,
-                            reasonValue: _reasonController?.text.trim(),
-                            ecominType: _selectedEcominType,
-                          );
+              child: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Text(
+                      modalTitle,
+                      style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+                      textAlign: TextAlign.center,
+                    ),
+                    const SizedBox(height: 16),
+                    TextField(
+                      controller: _amountController,
+                      decoration: const InputDecoration(labelText: 'Montant (FCFA)'),
+                      keyboardType: TextInputType.number,
+                      onChanged: (val) => setModalState(() => updateTotal()),
+                    ),
+                    const SizedBox(height: 12),
+                    if (!isDonPonctuel)
+                      TextField(
+                        controller: _dayController,
+                        decoration: const InputDecoration(labelText: 'Jour du mois (1-31)'),
+                        keyboardType: TextInputType.number,
+                      ),
+                    if (isEcomin) ...[
+                      const SizedBox(height: 12),
+                      DropdownButtonFormField<String>(
+                        value: _selectedEcominType,
+                        decoration: const InputDecoration(labelText: 'Quel Ecomin ?', prefixIcon: Icon(Icons.group)),
+                        items: _ecominTypes.map((e) => DropdownMenuItem(value: e, child: Text(e))).toList(),
+                        onChanged: (v) => setModalState(() => _selectedEcominType = v),
+                      ),
+                    ],
+                    const SizedBox(height: 12),
+                    TextField(
+                      controller: _reasonController!,
+                      decoration: const InputDecoration(labelText: 'Motifs du don', prefixIcon: Icon(Icons.edit)),
+                    ),
+                    const SizedBox(height: 12),
+                    if (isDonPonctuel && currentAmount > 0) ...[
+                      Text('Frais (1,5%) : ${(currentAmount * 0.015).round()} FCFA'),
+                      const SizedBox(height: 4),
+                      Text('Total à payer : $totalWithFees FCFA', style: const TextStyle(fontWeight: FontWeight.bold)),
+                      const SizedBox(height: 8),
+                    ],
+                    DropdownButtonFormField<String>(
+                      value: _selectedPeriodicity,
+                      decoration: const InputDecoration(labelText: 'Périodicité'),
+                      items: _periodicities.map((p) => DropdownMenuItem(value: p, child: Text(p))).toList(),
+                      onChanged: (v) => setModalState(() => _selectedPeriodicity = v!),
+                    ),
+                    if (isDonPonctuel) ...[
+                      const SizedBox(height: 12),
+                      DropdownButtonFormField<String>(
+                        value: localPaymentMethod,
+                        decoration: const InputDecoration(labelText: 'Moyen de paiement', prefixIcon: Icon(Icons.payment)),
+                        items: _paymentMethods.map((method) => DropdownMenuItem(
+                          value: method,
+                          child: Text(_getPaymentMethodLabel(method)),
+                        )).toList(),
+                        onChanged: (value) {
+                          setModalState(() {
+                            localPaymentMethod = value!;
+                          });
                         },
-                  child: _isLoading
-                      ? const CircularProgressIndicator()
-                      : Text(_selectedPeriodicity == 'Ponctuel' ? 'Procéder au paiement' : 'Enregistrer'),
+                      ),
+                    ],
+                    const SizedBox(height: 24),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.end,
+                      children: [
+                        TextButton(
+                          onPressed: () => Navigator.pop(ctx),
+                          child: const Text('Annuler'),
+                        ),
+                        const SizedBox(width: 12),
+                        ElevatedButton(
+                          onPressed: _isLoading
+                              ? null
+                              : () async {
+                                  _selectedPaymentMethod = localPaymentMethod;
+                                  await _saveCommitment(
+                                    itemName,
+                                    reasonValue: _reasonController?.text.trim(),
+                                    ecominType: _selectedEcominType,
+                                  );
+                                },
+                          child: _isLoading
+                              ? const CircularProgressIndicator()
+                              : Text(_selectedPeriodicity == 'Ponctuel' ? 'Procéder au paiement' : 'Enregistrer'),
+                        ),
+                      ],
+                    ),
+                  ],
                 ),
-              ],
+              ),
             );
           },
         );
