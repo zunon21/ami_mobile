@@ -16,7 +16,8 @@ dependencies:
   shared_preferences: 2.4.0
   google_fonts: ^6.2.1
   url_launcher: ^6.2.0
-  app_settings: ^5.1.1   # ← ajouté pour ouvrir les paramètres système
+  app_settings: ^5.1.1
+  country_picker: ^2.0.26   # ← ajout pour la liste des pays
 
 dev_dependencies:
   flutter_test:

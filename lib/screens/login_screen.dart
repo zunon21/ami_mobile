@@ -1,6 +1,7 @@
 ﻿import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
+import 'package:country_picker/country_picker.dart';
 import '../services/auth_service.dart';
 import 'home_screen.dart';
 
@@ -26,27 +27,15 @@ class _LoginScreenState extends State<LoginScreen> {
   String _tempToken = '';
   String _tempPhone = '';
 
-  // FocusNode pour le champ Âge (pour le focus automatique)
   final FocusNode _ageFocusNode = FocusNode();
 
-  final List<Map<String, String>> _countries = [
-    {'name': 'Côte d’Ivoire', 'code': '+225'},
-    {'name': 'France', 'code': '+33'},
-    {'name': 'Sénégal', 'code': '+221'},
-    {'name': 'Mali', 'code': '+223'},
-    {'name': 'Burkina Faso', 'code': '+226'},
-    {'name': 'Bénin', 'code': '+229'},
-    {'name': 'Togo', 'code': '+228'},
-    {'name': 'Niger', 'code': '+227'},
-    {'name': 'Guinée', 'code': '+224'},
-    {'name': 'Ghana', 'code': '+233'},
-    {'name': 'Nigeria', 'code': '+234'},
-    {'name': 'Canada', 'code': '+1'},
-    {'name': 'États-Unis', 'code': '+1'},
-    {'name': 'Belgique', 'code': '+32'},
-    {'name': 'Suisse', 'code': '+41'},
-  ];
-  String _selectedCountryCode = '+225';
+  // Pays sélectionné (Côte d'Ivoire par défaut)
+  Country _selectedCountry = Country(
+    phoneCode: '225',
+    countryCode: 'CI',
+    name: 'Côte d’Ivoire',
+    flag: '🇨🇮',
+  );
 
   Future<void> _requestOtp() async {
     String rawPhone = _phoneController.text.trim();
@@ -55,7 +44,7 @@ class _LoginScreenState extends State<LoginScreen> {
       return;
     }
     rawPhone = rawPhone.replaceAll(RegExp(r'\s+'), '');
-    final fullPhone = _selectedCountryCode + rawPhone;
+    final fullPhone = _selectedCountry.phoneCode + rawPhone;
 
     setState(() { _isLoading = true; _status = ''; });
     try {
@@ -102,7 +91,6 @@ class _LoginScreenState extends State<LoginScreen> {
         final needsName = data['needs_name'] ?? false;
         if (needsName) {
           setState(() { _step = 'name'; _tempToken = token; });
-          // Focus sur le champ Âge (clavier numérique, cohérent)
           WidgetsBinding.instance.addPostFrameCallback((_) {
             FocusScope.of(context).requestFocus(_ageFocusNode);
           });
@@ -180,6 +168,29 @@ class _LoginScreenState extends State<LoginScreen> {
     }
   }
 
+  void _showCountryPicker() {
+    showCountryPicker(
+      context: context,
+      showPhoneCode: true,
+      favorite: ['CI'], // Côte d'Ivoire en tête
+      countryListTheme: CountryListThemeData(
+        flagSize: 25,
+        textStyle: const TextStyle(fontSize: 16, color: Colors.black87),
+        inputDecoration: InputDecoration(
+          labelText: 'Rechercher un pays',
+          hintText: 'Tapez le nom ou l\'indicatif',
+          prefixIcon: const Icon(Icons.search),
+          border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+        ),
+      ),
+      onSelect: (Country country) {
+        setState(() {
+          _selectedCountry = country;
+        });
+      },
+    );
+  }
+
   @override
   void dispose() {
     _nameController.dispose();
@@ -211,30 +222,71 @@ class _LoginScreenState extends State<LoginScreen> {
                 const SizedBox(height: 12),
                 Text('Entrez votre numéro de téléphone', style: TextStyle(fontSize: 14, color: Colors.grey[600])),
                 const SizedBox(height: 20),
-                Container(
-                  decoration: BoxDecoration(border: Border.all(color: Colors.grey.shade300), borderRadius: BorderRadius.circular(12)),
-                  child: DropdownButtonHideUnderline(
-                    child: DropdownButton<String>(
-                      value: _selectedCountryCode,
-                      isExpanded: true,
-                      padding: const EdgeInsets.symmetric(horizontal: 16),
-                      items: _countries.map((country) => DropdownMenuItem(value: country['code'], child: Text('${country['name']} (${country['code']})'))).toList(),
-                      onChanged: (value) => setState(() => _selectedCountryCode = value!),
+                GestureDetector(
+                  onTap: _showCountryPicker,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                    decoration: BoxDecoration(
+                      border: Border.all(color: Colors.grey.shade300),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Row(
+                      children: [
+                        Text(_selectedCountry.flag, style: const TextStyle(fontSize: 24)),
+                        const SizedBox(width: 12),
+                        Text('${_selectedCountry.name} (+${_selectedCountry.phoneCode})', style: const TextStyle(fontSize: 16)),
+                        const Spacer(),
+                        const Icon(Icons.arrow_drop_down, color: Colors.grey),
+                      ],
                     ),
                   ),
                 ),
                 const SizedBox(height: 16),
-                TextField(controller: _phoneController, decoration: InputDecoration(labelText: 'Numéro', prefixIcon: Icon(Icons.phone, color: const Color(0xFFD4A017)), border: OutlineInputBorder(borderRadius: BorderRadius.circular(12))), keyboardType: TextInputType.phone),
+                TextField(
+                  controller: _phoneController,
+                  decoration: InputDecoration(
+                    labelText: 'Numéro',
+                    prefixIcon: Icon(Icons.phone, color: const Color(0xFFD4A017)),
+                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                  ),
+                  keyboardType: TextInputType.phone,
+                ),
                 const SizedBox(height: 24),
-                ElevatedButton(onPressed: _isLoading ? null : _requestOtp, style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFFD4A017), foregroundColor: Colors.white, minimumSize: const Size(double.infinity, 50), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(30))), child: _isLoading ? const CircularProgressIndicator(color: Colors.white) : const Text('Continuer', style: TextStyle(fontSize: 16))),
+                ElevatedButton(
+                  onPressed: _isLoading ? null : _requestOtp,
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFFD4A017),
+                    foregroundColor: Colors.white,
+                    minimumSize: const Size(double.infinity, 50),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(30)),
+                  ),
+                  child: _isLoading ? const CircularProgressIndicator(color: Colors.white) : const Text('Continuer', style: TextStyle(fontSize: 16)),
+                ),
               ] else if (_step == 'otp') ...[
                 Text('Vérification', style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: Color(0xFF2C1A0C))),
                 const SizedBox(height: 12),
                 Text('Un code a été envoyé à $_tempPhone', style: TextStyle(fontSize: 14, color: Colors.grey[600])),
                 const SizedBox(height: 32),
-                TextField(controller: _otpController, decoration: InputDecoration(labelText: 'Code à 6 chiffres', prefixIcon: Icon(Icons.lock, color: const Color(0xFFD4A017)), border: OutlineInputBorder(borderRadius: BorderRadius.circular(12))), keyboardType: TextInputType.number),
+                TextField(
+                  controller: _otpController,
+                  decoration: InputDecoration(
+                    labelText: 'Code à 6 chiffres',
+                    prefixIcon: Icon(Icons.lock, color: const Color(0xFFD4A017)),
+                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                  ),
+                  keyboardType: TextInputType.number,
+                ),
                 const SizedBox(height: 24),
-                ElevatedButton(onPressed: _isLoading ? null : _verifyOtp, style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFFD4A017), foregroundColor: Colors.white, minimumSize: const Size(double.infinity, 50), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(30))), child: _isLoading ? const CircularProgressIndicator(color: Colors.white) : const Text('Vérifier', style: TextStyle(fontSize: 16))),
+                ElevatedButton(
+                  onPressed: _isLoading ? null : _verifyOtp,
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFFD4A017),
+                    foregroundColor: Colors.white,
+                    minimumSize: const Size(double.infinity, 50),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(30)),
+                  ),
+                  child: _isLoading ? const CircularProgressIndicator(color: Colors.white) : const Text('Vérifier', style: TextStyle(fontSize: 16)),
+                ),
               ] else if (_step == 'name') ...[
                 Text('Complétez votre profil', style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: Color(0xFF2C1A0C))),
                 const SizedBox(height: 12),
@@ -269,18 +321,46 @@ class _LoginScreenState extends State<LoginScreen> {
                   textInputAction: TextInputAction.next,
                 ),
                 const SizedBox(height: 16),
-                TextField(controller: _cityController, decoration: InputDecoration(labelText: 'Ville de résidence', prefixIcon: Icon(Icons.location_city, color: const Color(0xFFD4A017)), border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)))),
+                TextField(
+                  controller: _cityController,
+                  decoration: InputDecoration(labelText: 'Ville de résidence', prefixIcon: Icon(Icons.location_city, color: const Color(0xFFD4A017)), border: OutlineInputBorder(borderRadius: BorderRadius.circular(12))),
+                ),
                 const SizedBox(height: 16),
-                TextField(controller: _professionController, decoration: InputDecoration(labelText: 'Profession', prefixIcon: Icon(Icons.work, color: const Color(0xFFD4A017)), border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)))),
+                TextField(
+                  controller: _professionController,
+                  decoration: InputDecoration(labelText: 'Profession', prefixIcon: Icon(Icons.work, color: const Color(0xFFD4A017)), border: OutlineInputBorder(borderRadius: BorderRadius.circular(12))),
+                ),
                 const SizedBox(height: 16),
-                TextField(controller: _churchController, decoration: InputDecoration(labelText: 'Église / organisation', prefixIcon: Icon(Icons.church, color: const Color(0xFFD4A017)), border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)))),
+                TextField(
+                  controller: _churchController,
+                  decoration: InputDecoration(labelText: 'Église / organisation', prefixIcon: Icon(Icons.church, color: const Color(0xFFD4A017)), border: OutlineInputBorder(borderRadius: BorderRadius.circular(12))),
+                ),
                 const SizedBox(height: 24),
-                ElevatedButton(onPressed: _isLoading ? null : _completeProfile, style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFFD4A017), foregroundColor: Colors.white, minimumSize: const Size(double.infinity, 50), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(30))), child: _isLoading ? const CircularProgressIndicator(color: Colors.white) : const Text('Terminer', style: TextStyle(fontSize: 16))),
+                ElevatedButton(
+                  onPressed: _isLoading ? null : _completeProfile,
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFFD4A017),
+                    foregroundColor: Colors.white,
+                    minimumSize: const Size(double.infinity, 50),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(30)),
+                  ),
+                  child: _isLoading ? const CircularProgressIndicator(color: Colors.white) : const Text('Terminer', style: TextStyle(fontSize: 16)),
+                ),
               ],
               const SizedBox(height: 32),
               Text(_status, style: TextStyle(color: _status.contains('réussie') ? Colors.green : Colors.red)),
               const SizedBox(height: 16),
-              Text.rich(TextSpan(text: 'En vous inscrivant, vous acceptez notre ', style: TextStyle(color: Colors.grey[600], fontSize: 12), children: [TextSpan(text: 'Politique de confidentialité', style: const TextStyle(color: Colors.blue, decoration: TextDecoration.underline)), const TextSpan(text: ' et nos '), TextSpan(text: 'Conditions d\'utilisation', style: const TextStyle(color: Colors.blue, decoration: TextDecoration.underline))])),
+              Text.rich(
+                TextSpan(
+                  text: 'En vous inscrivant, vous acceptez notre ',
+                  style: TextStyle(color: Colors.grey[600], fontSize: 12),
+                  children: [
+                    TextSpan(text: 'Politique de confidentialité', style: const TextStyle(color: Colors.blue, decoration: TextDecoration.underline)),
+                    const TextSpan(text: ' et nos '),
+                    TextSpan(text: 'Conditions d\'utilisation', style: const TextStyle(color: Colors.blue, decoration: TextDecoration.underline)),
+                  ],
+                ),
+              ),
             ],
           ),
         ),
