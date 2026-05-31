@@ -17,7 +17,6 @@ dependencies:
   google_fonts: ^6.2.1
   url_launcher: ^6.2.0
   app_settings: ^5.1.1
-  country_picker: ^2.0.27   # ← AJOUT OBLIGATOIRE
 
 dev_dependencies:
   flutter_test:
