@@ -3,7 +3,7 @@ import 'package:http/http.dart' as http;
 import 'dart:convert';
 import '../services/auth_service.dart';
 import 'home_screen.dart';
-import '../data/countries.dart'; // ← importer la liste
+import '../data/countries.dart';
 
 class LoginScreen extends StatefulWidget {
   @override
@@ -27,11 +27,10 @@ class _LoginScreenState extends State<LoginScreen> {
   String _tempToken = '';
   String _tempPhone = '';
 
-  // Liste complète des pays
   List<Country> _allCountries = [];
   List<Country> _filteredCountries = [];
   Country? _selectedCountry;
-  TextEditingController _searchController = TextEditingController();
+  final TextEditingController _searchController = TextEditingController();
 
   final FocusNode _ageFocusNode = FocusNode();
 
@@ -39,24 +38,142 @@ class _LoginScreenState extends State<LoginScreen> {
   void initState() {
     super.initState();
     _allCountries = getAllCountries();
-    // Trier alphabétiquement
     _allCountries.sort((a, b) => a.name.compareTo(b.name));
     _filteredCountries = List.from(_allCountries);
     // Sélectionner la Côte d'Ivoire par défaut
     _selectedCountry = _allCountries.firstWhere((c) => c.code == 'CI', orElse: () => _allCountries.first);
   }
 
-  void _filterCountries(String query) {
-    setState(() {
-      if (query.isEmpty) {
-        _filteredCountries = List.from(_allCountries);
+  Future<void> _requestOtp() async {
+    String rawPhone = _phoneController.text.trim();
+    if (rawPhone.isEmpty) {
+      setState(() => _status = 'Veuillez saisir votre numéro');
+      return;
+    }
+    rawPhone = rawPhone.replaceAll(RegExp(r'\s+'), '');
+    // ✅ CORRECTION : utiliser dialCode au lieu de phoneCode
+    final fullPhone = _selectedCountry!.dialCode + rawPhone;
+
+    setState(() { _isLoading = true; _status = ''; });
+    try {
+      final response = await http.post(
+        Uri.parse('${AuthService.baseUrl}/api/auth/request-otp'),
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({'phone': fullPhone}),
+      );
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        final code = data['code'];
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Votre code OTP : $code'),
+            duration: Duration(seconds: 10),
+            backgroundColor: Colors.green,
+          ),
+        );
+        setState(() { _step = 'otp'; _tempPhone = fullPhone; _status = 'Code envoyé (consultez le message ci-dessous)'; });
       } else {
-        _filteredCountries = _allCountries.where((country) {
-          return country.name.toLowerCase().contains(query.toLowerCase()) ||
-              country.dialCode.contains(query);
-        }).toList();
+        setState(() => _status = 'Erreur envoi code');
       }
-    });
+    } catch (e) {
+      print('Erreur détaillée : $e');
+      setState(() => _status = 'Erreur connexion: $e');
+    } finally {
+      setState(() => _isLoading = false);
+    }
+  }
+
+  Future<void> _verifyOtp() async {
+    final code = _otpController.text.trim();
+    if (code.isEmpty) { setState(() => _status = 'Entrez le code'); return; }
+    setState(() { _isLoading = true; _status = ''; });
+    try {
+      final response = await http.post(
+        Uri.parse('${AuthService.baseUrl}/api/auth/verify-otp'),
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({'phone': _tempPhone, 'code': code}),
+      );
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        final token = data['token'];
+        final needsName = data['needs_name'] ?? false;
+        if (needsName) {
+          setState(() { _step = 'name'; _tempToken = token; });
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            FocusScope.of(context).requestFocus(_ageFocusNode);
+          });
+        } else {
+          await AuthService.saveToken(token);
+          setState(() => _status = 'Connexion réussie');
+          Navigator.pushReplacement(
+            context,
+            MaterialPageRoute(builder: (_) => HomeScreen()),
+          );
+        }
+      } else {
+        setState(() => _status = 'Code invalide ou expiré');
+      }
+    } catch (e) {
+      setState(() => _status = 'Erreur vérification');
+    } finally {
+      setState(() => _isLoading = false);
+    }
+  }
+
+  Future<void> _completeProfile() async {
+    final fullName = _nameController.text.trim();
+    final firstName = _firstNameController.text.trim();
+    final gender = _selectedGender;
+    final age = int.tryParse(_ageController.text.trim());
+    final city = _cityController.text.trim();
+    final profession = _professionController.text.trim();
+    final church = _churchController.text.trim();
+
+    if (fullName.isEmpty || firstName.isEmpty || gender == null || age == null || city.isEmpty || profession.isEmpty || church.isEmpty) {
+      setState(() => _status = 'Veuillez remplir tous les champs');
+      return;
+    }
+
+    setState(() { _isLoading = true; _status = ''; });
+    try {
+      await http.put(
+        Uri.parse('${AuthService.baseUrl}/api/auth/update-name'),
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer $_tempToken',
+        },
+        body: jsonEncode({'name': fullName}),
+      );
+      final response = await http.post(
+        Uri.parse('${AuthService.baseUrl}/api/auth/complete-profile'),
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer $_tempToken',
+        },
+        body: jsonEncode({
+          'first_name': firstName,
+          'gender': gender,
+          'age': age,
+          'city': city,
+          'profession': profession,
+          'church_org': church,
+        }),
+      );
+      if (response.statusCode == 200) {
+        await AuthService.saveToken(_tempToken);
+        setState(() => _status = 'Profil enregistré !');
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(builder: (_) => HomeScreen()),
+        );
+      } else {
+        setState(() => _status = 'Erreur enregistrement profil');
+      }
+    } catch (e) {
+      setState(() => _status = 'Erreur connexion');
+    } finally {
+      setState(() => _isLoading = false);
+    }
   }
 
   void _showCountryPicker() {
@@ -124,14 +241,6 @@ class _LoginScreenState extends State<LoginScreen> {
       },
     );
   }
-
-  // Le reste des fonctions (_requestOtp, _verifyOtp, _completeProfile, dispose, build) sont inchangées.
-  // Je les recopie ici pour être complet, mais elles sont identiques à votre version.
-  // Seule la partie d'affichage du sélecteur de pays change.
-
-  Future<void> _requestOtp() async { /* identique à avant */ }
-  Future<void> _verifyOtp() async { /* identique */ }
-  Future<void> _completeProfile() async { /* identique */ }
 
   @override
   void dispose() {
@@ -206,7 +315,6 @@ class _LoginScreenState extends State<LoginScreen> {
                   child: _isLoading ? const CircularProgressIndicator(color: Colors.white) : const Text('Continuer', style: TextStyle(fontSize: 16)),
                 ),
               ] else if (_step == 'otp') ...[
-                // (contenu inchangé)
                 Text('Vérification', style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: Color(0xFF2C1A0C))),
                 const SizedBox(height: 12),
                 Text('Un code a été envoyé à $_tempPhone', style: TextStyle(fontSize: 14, color: Colors.grey[600])),
@@ -232,7 +340,6 @@ class _LoginScreenState extends State<LoginScreen> {
                   child: _isLoading ? const CircularProgressIndicator(color: Colors.white) : const Text('Vérifier', style: TextStyle(fontSize: 16)),
                 ),
               ] else if (_step == 'name') ...[
-                // (contenu inchangé)
                 Text('Complétez votre profil', style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: Color(0xFF2C1A0C))),
                 const SizedBox(height: 12),
                 Text('Quelques informations supplémentaires', style: TextStyle(fontSize: 14, color: Colors.grey[600])),
