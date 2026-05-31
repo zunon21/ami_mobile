@@ -27,14 +27,17 @@ class _LoginScreenState extends State<LoginScreen> {
   String _tempToken = '';
   String _tempPhone = '';
 
-  // ✅ Correction : plus de paramètre 'flag'
-  Country _selectedCountry = Country(
-    phoneCode: '225',
-    countryCode: 'CI',
-    name: 'Côte d’Ivoire',
-  );
+  // Pays sélectionné (initialisé avec la Côte d'Ivoire)
+  late Country _selectedCountry;
 
   final FocusNode _ageFocusNode = FocusNode();
+
+  @override
+  void initState() {
+    super.initState();
+    // Récupère l'objet Country complet pour la Côte d'Ivoire
+    _selectedCountry = CountryPickerUtils.getCountryByCountryCode('CI');
+  }
 
   Future<void> _requestOtp() async {
     String rawPhone = _phoneController.text.trim();
@@ -231,7 +234,6 @@ class _LoginScreenState extends State<LoginScreen> {
                     ),
                     child: Row(
                       children: [
-                        // ✅ Utilisation de flagEmoji
                         Text(_selectedCountry.flagEmoji, style: const TextStyle(fontSize: 24)),
                         const SizedBox(width: 12),
                         Text('${_selectedCountry.name} (+${_selectedCountry.phoneCode})', style: const TextStyle(fontSize: 16)),
@@ -263,7 +265,6 @@ class _LoginScreenState extends State<LoginScreen> {
                   child: _isLoading ? const CircularProgressIndicator(color: Colors.white) : const Text('Continuer', style: TextStyle(fontSize: 16)),
                 ),
               ] else if (_step == 'otp') ...[
-                // ... (reste inchangé)
                 Text('Vérification', style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: Color(0xFF2C1A0C))),
                 const SizedBox(height: 12),
                 Text('Un code a été envoyé à $_tempPhone', style: TextStyle(fontSize: 14, color: Colors.grey[600])),
