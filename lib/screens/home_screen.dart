@@ -476,8 +476,9 @@ class _HomeScreenState extends State<HomeScreen> {
                             );
                             Navigator.pop(ctx);
                             if (success) {
+                              await Future.delayed(Duration(seconds: 2));
                               await _fetchPaymentHistory();
-                              ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Redirection vers la page de paiement...')));
+                              ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Paiement réussi ! Redirection...')));
                             } else {
                               ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Erreur lors de l’initiation du paiement')));
                             }
@@ -621,8 +622,9 @@ class _HomeScreenState extends State<HomeScreen> {
                             Navigator.pop(ctx);
                             _isModalOpen = false;
                             if (success) {
+                              await Future.delayed(Duration(seconds: 2));
                               await _fetchPaymentHistory();
-                              ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Redirection vers la page de paiement...')));
+                              ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Paiement réussi ! Redirection...')));
                             } else {
                               ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Erreur initiation paiement')));
                             }
@@ -733,7 +735,9 @@ class _HomeScreenState extends State<HomeScreen> {
                             );
                             Navigator.pop(ctx);
                             if (success) {
+                              await Future.delayed(Duration(seconds: 2));
                               await _fetchPaymentHistory();
+                              ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Paiement réussi ! Redirection...')));
                             } else {
                               ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Erreur paiement')));
                             }
@@ -908,8 +912,9 @@ class _HomeScreenState extends State<HomeScreen> {
         );
         Navigator.pop(ctx);
         if (success) {
+          await Future.delayed(Duration(seconds: 2));
           await _fetchPaymentHistory();
-          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Redirection vers la page de paiement...')));
+          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Paiement réussi ! Redirection...')));
         } else {
           ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Erreur initiation paiement')));
         }
@@ -1003,91 +1008,111 @@ class _HomeScreenState extends State<HomeScreen> {
     final TextEditingController motiveController = TextEditingController(text: commitment['reason'] ?? '');
     final TextEditingController reasonController = TextEditingController(text: isMissionnaire ? '' : (commitment['reason'] ?? ''));
     final itemName = commitment['item_name'];
-    
-    await showDialog(
+
+    // Remplacer AlertDialog par showModalBottomSheet
+    await showModalBottomSheet(
       context: context,
+      isScrollControlled: true,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
       builder: (ctx) {
         return StatefulBuilder(
           builder: (context, setStateModal) {
             bool isDonPonctuel = (selectedPeriodicity == 'Ponctuel');
-            return AlertDialog(
-              title: const Text('Modifier l\'engagement'),
-              content: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Align(alignment: Alignment.centerLeft, child: Text('${commitment['service_name']}', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16))),
-                  const SizedBox(height: 4),
-                  Align(alignment: Alignment.centerLeft, child: Text(isMissionnaire ? 'Soutenir un missionnaire' : itemName, style: const TextStyle(fontStyle: FontStyle.italic))),
-                  const SizedBox(height: 16),
-                  TextField(controller: amountController, decoration: const InputDecoration(labelText: 'Montant (FCFA)'), keyboardType: TextInputType.number),
-                  const SizedBox(height: 12),
-                  if (!isDonPonctuel) TextField(controller: dayController, decoration: const InputDecoration(labelText: 'Jour du mois (1-31)'), keyboardType: TextInputType.number),
-                  const SizedBox(height: 12),
-                  if (isMissionnaire) ...[
-                    TextField(controller: nameController, decoration: const InputDecoration(labelText: 'Nom et Prénoms du missionnaire')),
+            return Padding(
+              padding: EdgeInsets.only(bottom: MediaQuery.of(ctx).viewInsets.bottom, left: 16, right: 16, top: 16),
+              child: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Text(
+                      'Modifier l\'engagement',
+                      style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+                      textAlign: TextAlign.center,
+                    ),
+                    const SizedBox(height: 16),
+                    Align(alignment: Alignment.centerLeft, child: Text('${commitment['service_name']}', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16))),
+                    const SizedBox(height: 4),
+                    Align(alignment: Alignment.centerLeft, child: Text(isMissionnaire ? 'Soutenir un missionnaire' : itemName, style: const TextStyle(fontStyle: FontStyle.italic))),
+                    const SizedBox(height: 16),
+                    TextField(controller: amountController, decoration: const InputDecoration(labelText: 'Montant (FCFA)'), keyboardType: TextInputType.number),
                     const SizedBox(height: 12),
-                    TextField(controller: motiveController, decoration: const InputDecoration(labelText: 'Motifs du don')),
+                    if (!isDonPonctuel) TextField(controller: dayController, decoration: const InputDecoration(labelText: 'Jour du mois (1-31)'), keyboardType: TextInputType.number),
                     const SizedBox(height: 12),
-                  ] else ...[
-                    TextField(controller: reasonController, decoration: const InputDecoration(labelText: 'Objet du don')),
+                    if (isMissionnaire) ...[
+                      TextField(controller: nameController, decoration: const InputDecoration(labelText: 'Nom et Prénoms du missionnaire')),
+                      const SizedBox(height: 12),
+                      TextField(controller: motiveController, decoration: const InputDecoration(labelText: 'Motifs du don')),
+                      const SizedBox(height: 12),
+                    ] else ...[
+                      TextField(controller: reasonController, decoration: const InputDecoration(labelText: 'Objet du don')),
+                      const SizedBox(height: 12),
+                    ],
+                    DropdownButtonFormField<String>(
+                      value: selectedPeriodicity,
+                      decoration: const InputDecoration(labelText: 'Périodicité'),
+                      items: periodicities.map((p) => DropdownMenuItem(value: p, child: Text(p))).toList(),
+                      onChanged: (v) => setStateModal(() => selectedPeriodicity = v!),
+                    ),
                     const SizedBox(height: 12),
+                    Align(alignment: Alignment.centerLeft, child: Text('Date d\'enregistrement : ${_formatDate(commitment['createdAt'])}', style: const TextStyle(fontSize: 12, color: Colors.grey))),
+                    const SizedBox(height: 24),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.end,
+                      children: [
+                        TextButton(
+                          onPressed: () => Navigator.pop(ctx),
+                          child: const Text('Annuler'),
+                        ),
+                        const SizedBox(width: 12),
+                        ElevatedButton(
+                          onPressed: () async {
+                            final newAmount = double.tryParse(amountController.text.trim())?.toInt();
+                            if (newAmount == null || newAmount <= 0) {
+                              ScaffoldMessenger.of(ctx).showSnackBar(const SnackBar(content: Text('Montant invalide')));
+                              return;
+                            }
+                            final newDay = isDonPonctuel ? null : int.tryParse(dayController.text.trim());
+                            if (!isDonPonctuel && (newDay == null || newDay < 1 || newDay > 31)) {
+                              ScaffoldMessenger.of(ctx).showSnackBar(const SnackBar(content: Text('Jour invalide (1-31)')));
+                              return;
+                            }
+                            final token = await AuthService.getToken();
+                            if (token == null) return;
+                            final body = <String, dynamic>{
+                              'amount': newAmount,
+                              'day_of_month': newDay,
+                              'periodicity': _mapPeriodicityToBackend(selectedPeriodicity),
+                            };
+                            if (isMissionnaire) {
+                              final newName = nameController.text.trim();
+                              if (newName.isNotEmpty) body['item_name'] = newName;
+                              final newMotive = motiveController.text.trim();
+                              if (newMotive.isNotEmpty) body['reason'] = newMotive;
+                            } else {
+                              final newReason = reasonController.text.trim();
+                              if (newReason.isNotEmpty) body['reason'] = newReason;
+                            }
+                            final response = await http.put(
+                              Uri.parse('$_baseUrl/api/auth/service-commitments/${commitment['id']}'),
+                              headers: {'Content-Type': 'application/json', 'Authorization': 'Bearer $token'},
+                              body: jsonEncode(body),
+                            );
+                            Navigator.pop(ctx);
+                            if (response.statusCode == 200) {
+                              await _fetchServiceCommitments();
+                              ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Engagement modifié')));
+                            } else {
+                              ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Erreur modification')));
+                            }
+                          },
+                          child: const Text('Enregistrer'),
+                        ),
+                      ],
+                    ),
                   ],
-                  DropdownButtonFormField<String>(
-                    value: selectedPeriodicity,
-                    decoration: const InputDecoration(labelText: 'Périodicité'),
-                    items: periodicities.map((p) => DropdownMenuItem(value: p, child: Text(p))).toList(),
-                    onChanged: (v) => setStateModal(() => selectedPeriodicity = v!),
-                  ),
-                  const SizedBox(height: 12),
-                  Align(alignment: Alignment.centerLeft, child: Text('Date d\'enregistrement : ${_formatDate(commitment['createdAt'])}', style: const TextStyle(fontSize: 12, color: Colors.grey))),
-                ],
-              ),
-              actions: [
-                TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Annuler')),
-                ElevatedButton(
-                  onPressed: () async {
-                    final newAmount = double.tryParse(amountController.text.trim())?.toInt();
-                    if (newAmount == null || newAmount <= 0) {
-                      ScaffoldMessenger.of(ctx).showSnackBar(const SnackBar(content: Text('Montant invalide')));
-                      return;
-                    }
-                    final newDay = isDonPonctuel ? null : int.tryParse(dayController.text.trim());
-                    if (!isDonPonctuel && (newDay == null || newDay < 1 || newDay > 31)) {
-                      ScaffoldMessenger.of(ctx).showSnackBar(const SnackBar(content: Text('Jour invalide (1-31)')));
-                      return;
-                    }
-                    final token = await AuthService.getToken();
-                    if (token == null) return;
-                    final body = <String, dynamic>{
-                      'amount': newAmount,
-                      'day_of_month': newDay,
-                      'periodicity': _mapPeriodicityToBackend(selectedPeriodicity),
-                    };
-                    if (isMissionnaire) {
-                      final newName = nameController.text.trim();
-                      if (newName.isNotEmpty) body['item_name'] = newName;
-                      final newMotive = motiveController.text.trim();
-                      if (newMotive.isNotEmpty) body['reason'] = newMotive;
-                    } else {
-                      final newReason = reasonController.text.trim();
-                      if (newReason.isNotEmpty) body['reason'] = newReason;
-                    }
-                    final response = await http.put(
-                      Uri.parse('$_baseUrl/api/auth/service-commitments/${commitment['id']}'),
-                      headers: {'Content-Type': 'application/json', 'Authorization': 'Bearer $token'},
-                      body: jsonEncode(body),
-                    );
-                    Navigator.pop(ctx);
-                    if (response.statusCode == 200) {
-                      await _fetchServiceCommitments();
-                      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Engagement modifié')));
-                    } else {
-                      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Erreur modification')));
-                    }
-                  },
-                  child: const Text('Enregistrer'),
                 ),
-              ],
+              ),
             );
           },
         );
@@ -1139,9 +1164,10 @@ class _HomeScreenState extends State<HomeScreen> {
     bool isPaying = false;
     final String description = '${commitment['service_name']} - ${commitment['item_name']}';
 
-    await showDialog(
+    await showModalBottomSheet(
       context: context,
-      barrierDismissible: false,
+      isScrollControlled: true,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
       builder: (ctx) {
         return StatefulBuilder(
           builder: (context, setStateDialog) {
@@ -1151,77 +1177,92 @@ class _HomeScreenState extends State<HomeScreen> {
               currentAmount = int.tryParse(amountCtrl.text) ?? 0;
               totalWithFees = PaymentService.calculateTotalWithFees(currentAmount);
             }
-            return AlertDialog(
-              title: const Text('Honorer l\'engagement'),
-              content: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  TextField(
-                    controller: amountCtrl,
-                    decoration: const InputDecoration(labelText: 'Montant (FCFA)'),
-                    keyboardType: TextInputType.number,
-                    onChanged: (val) => setStateDialog(() => updateTotal()),
-                  ),
-                  const SizedBox(height: 12),
-                  if (currentAmount > 0) ...[
-                    Text('Frais (1,5%) : ${(currentAmount * 0.015).round()} FCFA'),
-                    const SizedBox(height: 4),
-                    Text('Total à payer : $totalWithFees FCFA', style: const TextStyle(fontWeight: FontWeight.bold)),
-                    const SizedBox(height: 8),
+            return Padding(
+              padding: EdgeInsets.only(bottom: MediaQuery.of(ctx).viewInsets.bottom, left: 16, right: 16, top: 16),
+              child: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    const Text(
+                      'Honorer l\'engagement',
+                      style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+                      textAlign: TextAlign.center,
+                    ),
+                    const SizedBox(height: 16),
+                    TextField(
+                      controller: amountCtrl,
+                      decoration: const InputDecoration(labelText: 'Montant (FCFA)'),
+                      keyboardType: TextInputType.number,
+                      onChanged: (val) => setStateDialog(() => updateTotal()),
+                    ),
+                    const SizedBox(height: 12),
+                    if (currentAmount > 0) ...[
+                      Text('Frais (1,5%) : ${(currentAmount * 0.015).round()} FCFA'),
+                      const SizedBox(height: 4),
+                      Text('Total à payer : $totalWithFees FCFA', style: const TextStyle(fontWeight: FontWeight.bold)),
+                      const SizedBox(height: 8),
+                    ],
+                    DropdownButtonFormField<String>(
+                      value: localPaymentMethod,
+                      decoration: const InputDecoration(labelText: 'Moyen de paiement', prefixIcon: Icon(Icons.payment)),
+                      items: _paymentMethods.map((method) => DropdownMenuItem(
+                        value: method,
+                        child: _getPaymentMethodWidget(method),
+                      )).toList(),
+                      onChanged: (value) {
+                        setStateDialog(() {
+                          localPaymentMethod = value!;
+                        });
+                      },
+                    ),
+                    const SizedBox(height: 24),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.end,
+                      children: [
+                        TextButton(
+                          onPressed: () => Navigator.pop(ctx),
+                          child: const Text('Annuler'),
+                        ),
+                        const SizedBox(width: 12),
+                        ElevatedButton(
+                          onPressed: isPaying
+                              ? null
+                              : () async {
+                                  setStateDialog(() => isPaying = true);
+                                  final double amountDouble = double.tryParse(amountCtrl.text.trim()) ?? 0;
+                                  final int newAmount = amountDouble.toInt();
+                                  if (newAmount <= 0) {
+                                    ScaffoldMessenger.of(ctx).showSnackBar(const SnackBar(content: Text('Montant invalide')));
+                                    setStateDialog(() => isPaying = false);
+                                    return;
+                                  }
+                                  final total = PaymentService.calculateTotalWithFees(newAmount);
+                                  final success = await PaymentService.initiatePayment(
+                                    total,
+                                    _generalProjectId,
+                                    localPaymentMethod,
+                                    description: description,
+                                  );
+                                  if (!mounted) return;
+                                  Navigator.pop(ctx);
+                                  if (success) {
+                                    await Future.delayed(Duration(seconds: 2));
+                                    await _fetchPaymentHistory();
+                                    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Paiement réussi ! Redirection...')));
+                                  } else {
+                                    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Erreur lors de l’initiation du paiement')));
+                                  }
+                                },
+                          child: isPaying
+                              ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2))
+                              : const Text('Payer'),
+                        ),
+                      ],
+                    ),
                   ],
-                  DropdownButtonFormField<String>(
-                    value: localPaymentMethod,
-                    decoration: const InputDecoration(labelText: 'Moyen de paiement', prefixIcon: Icon(Icons.payment)),
-                    items: _paymentMethods.map((method) => DropdownMenuItem(
-                      value: method,
-                      child: _getPaymentMethodWidget(method),
-                    )).toList(),
-                    onChanged: (value) {
-                      setStateDialog(() {
-                        localPaymentMethod = value!;
-                      });
-                    },
-                  ),
-                ],
+                ),
               ),
-              actions: [
-                TextButton(
-                  onPressed: () => Navigator.pop(ctx),
-                  child: const Text('Annuler'),
-                ),
-                ElevatedButton(
-                  onPressed: isPaying
-                      ? null
-                      : () async {
-                          setStateDialog(() => isPaying = true);
-                          final double amountDouble = double.tryParse(amountCtrl.text.trim()) ?? 0;
-                          final int newAmount = amountDouble.toInt();
-                          if (newAmount <= 0) {
-                            ScaffoldMessenger.of(ctx).showSnackBar(const SnackBar(content: Text('Montant invalide')));
-                            setStateDialog(() => isPaying = false);
-                            return;
-                          }
-                          final total = PaymentService.calculateTotalWithFees(newAmount);
-                          final success = await PaymentService.initiatePayment(
-                            total,
-                            _generalProjectId,
-                            localPaymentMethod,
-                            description: description,
-                          );
-                          if (!mounted) return;
-                          Navigator.pop(ctx);
-                          if (success) {
-                            await _fetchPaymentHistory();
-                            ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Redirection vers la page de paiement...')));
-                          } else {
-                            ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Erreur lors de l’initiation du paiement')));
-                          }
-                        },
-                  child: isPaying
-                      ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2))
-                      : const Text('Payer'),
-                ),
-              ],
             );
           },
         );
@@ -1601,8 +1642,9 @@ class _HomeScreenState extends State<HomeScreen> {
                                         );
                                         Navigator.pop(ctx2);
                                         if (success) {
+                                          await Future.delayed(Duration(seconds: 2));
                                           await _fetchPaymentHistory();
-                                          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Redirection vers la page de paiement...')));
+                                          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Paiement réussi ! Redirection...')));
                                         } else {
                                           ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Erreur paiement')));
                                         }
