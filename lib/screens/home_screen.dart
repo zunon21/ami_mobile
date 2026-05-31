@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
 import 'package:app_settings/app_settings.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../services/auth_service.dart';
 import '../services/commitment_service.dart';
 import '../services/payment_service.dart';
@@ -87,16 +88,86 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   void initState() {
     super.initState();
-    _loadData();
+    _loadCachedData();   // Charge immédiatement le cache (affichage instantané)
+    _loadData();         // En arrière-plan, récupère les données à jour
   }
 
+  // --------------------- GESTION DU CACHE ---------------------
+  Future<void> _cacheData() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString('fullName', _fullName);
+    if (_commitment != null) {
+      await prefs.setString('commitment', jsonEncode(_commitment));
+    } else {
+      await prefs.remove('commitment');
+    }
+    await prefs.setString('recurringDonations', jsonEncode(_recurringDonations));
+    await prefs.setString('serviceCommitments', jsonEncode(_serviceCommitments));
+    await prefs.setString('paymentHistory', jsonEncode(_paymentHistory));
+  }
+
+  Future<void> _loadCachedData() async {
+    final prefs = await SharedPreferences.getInstance();
+    bool hasCache = false;
+
+    if (prefs.containsKey('fullName')) {
+      setState(() {
+        _fullName = prefs.getString('fullName')!;
+        hasCache = true;
+      });
+    }
+    if (prefs.containsKey('commitment')) {
+      final data = prefs.getString('commitment');
+      if (data != null) {
+        setState(() {
+          _commitment = jsonDecode(data);
+          hasCache = true;
+        });
+      }
+    }
+    if (prefs.containsKey('recurringDonations')) {
+      final data = prefs.getString('recurringDonations');
+      if (data != null) {
+        setState(() {
+          _recurringDonations = jsonDecode(data);
+          hasCache = true;
+        });
+      }
+    }
+    if (prefs.containsKey('serviceCommitments')) {
+      final data = prefs.getString('serviceCommitments');
+      if (data != null) {
+        setState(() {
+          _serviceCommitments = jsonDecode(data);
+          hasCache = true;
+        });
+      }
+    }
+    if (prefs.containsKey('paymentHistory')) {
+      final data = prefs.getString('paymentHistory');
+      if (data != null) {
+        setState(() {
+          _paymentHistory = jsonDecode(data);
+          hasCache = true;
+        });
+      }
+    }
+    if (hasCache) {
+      setState(() => _isLoading = false);
+    }
+  }
+
+  // --------------------- CHARGEMENT DEPUIS LE SERVEUR ---------------------
   Future<void> _loadData() async {
     await _fetchUserInfo();
     await _fetchCommitment();
     await _fetchRecurringDonations();
     await _fetchServiceCommitments();
     await _fetchPaymentHistory();
-    setState(() => _isLoading = false);
+    await _cacheData();                    // Mise à jour du cache
+    if (mounted && _isLoading) {
+      setState(() => _isLoading = false);
+    }
   }
 
   Future<void> _fetchUserInfo() async {
@@ -171,7 +242,7 @@ class _HomeScreenState extends State<HomeScreen> {
     }
   }
 
-  // NOUVELLE VERSION ÉLÉGANTE DU REÇU DE PAIEMENT AVEC CONVERSION ROBUSTE
+  // --------------------- REÇU DE PAIEMENT (design élégant) ---------------------
   void _showPaymentReceipt() {
     showModalBottomSheet(
       context: context,
@@ -201,7 +272,6 @@ class _HomeScreenState extends State<HomeScreen> {
               ),
               child: Column(
                 children: [
-                  // Poignée de fermeture
                   Container(
                     margin: EdgeInsets.only(top: 12),
                     width: 40,
@@ -215,22 +285,13 @@ class _HomeScreenState extends State<HomeScreen> {
                     padding: EdgeInsets.all(20),
                     child: Text(
                       'Reçu de paiement',
-                      style: TextStyle(
-                        fontSize: 24,
-                        fontWeight: FontWeight.bold,
-                        color: Color(0xFF5D3A1A),
-                      ),
+                      style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: Color(0xFF5D3A1A)),
                     ),
                   ),
                   const Divider(height: 1, thickness: 1, color: Color(0xFFF0E5D8)),
                   Expanded(
                     child: _paymentHistory.isEmpty
-                        ? const Center(
-                            child: Text(
-                              'Aucun paiement effectué',
-                              style: TextStyle(color: Colors.grey, fontSize: 16),
-                            ),
-                          )
+                        ? const Center(child: Text('Aucun paiement effectué', style: TextStyle(color: Colors.grey, fontSize: 16)))
                         : ListView.builder(
                             controller: scrollController,
                             padding: const EdgeInsets.all(16),
@@ -238,12 +299,9 @@ class _HomeScreenState extends State<HomeScreen> {
                             itemBuilder: (ctx, index) {
                               final payment = _paymentHistory[index];
                               final DateTime dateTime = DateTime.parse(payment['createdAt']);
-                              final String formattedDate =
-                                  '${dateTime.day}/${dateTime.month}/${dateTime.year}';
-                              final String formattedTime =
-                                  '${dateTime.hour.toString().padLeft(2, '0')}:${dateTime.minute.toString().padLeft(2, '0')}';
+                              final String formattedDate = '${dateTime.day}/${dateTime.month}/${dateTime.year}';
+                              final String formattedTime = '${dateTime.hour.toString().padLeft(2, '0')}:${dateTime.minute.toString().padLeft(2, '0')}';
                               final String title = payment['description'] ?? 'Don AMI';
-                              // 🔧 Conversion robuste du montant (évite l'erreur .toDouble sur String)
                               final double amount = () {
                                 final value = payment['amount'];
                                 if (value is int) return value.toDouble();
@@ -256,17 +314,8 @@ class _HomeScreenState extends State<HomeScreen> {
                                 decoration: BoxDecoration(
                                   color: Colors.white,
                                   borderRadius: BorderRadius.circular(20),
-                                  boxShadow: [
-                                    BoxShadow(
-                                      color: Colors.grey.withOpacity(0.1),
-                                      blurRadius: 10,
-                                      offset: Offset(0, 4),
-                                    ),
-                                  ],
-                                  border: Border.all(
-                                    color: Color(0xFFFCE4B2),
-                                    width: 1,
-                                  ),
+                                  boxShadow: [BoxShadow(color: Colors.grey.withOpacity(0.1), blurRadius: 10, offset: Offset(0, 4))],
+                                  border: Border.all(color: Color(0xFFFCE4B2), width: 1),
                                 ),
                                 child: Padding(
                                   padding: const EdgeInsets.all(16),
@@ -277,69 +326,28 @@ class _HomeScreenState extends State<HomeScreen> {
                                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                                         children: [
                                           Expanded(
-                                            child: Text(
-                                              title,
-                                              style: const TextStyle(
-                                                fontSize: 16,
-                                                fontWeight: FontWeight.w600,
-                                                color: Color(0xFF4A2E1B),
-                                              ),
-                                            ),
+                                            child: Text(title, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600, color: Color(0xFF4A2E1B))),
                                           ),
                                           Container(
-                                            padding: const EdgeInsets.symmetric(
-                                              horizontal: 12,
-                                              vertical: 6,
-                                            ),
+                                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                                             decoration: BoxDecoration(
-                                              gradient: const LinearGradient(
-                                                colors: [Color(0xFFD4A017), Color(0xFFF57C00)],
-                                                begin: Alignment.topLeft,
-                                                end: Alignment.bottomRight,
-                                              ),
+                                              gradient: const LinearGradient(colors: [Color(0xFFD4A017), Color(0xFFF57C00)], begin: Alignment.topLeft, end: Alignment.bottomRight),
                                               borderRadius: BorderRadius.circular(30),
                                             ),
-                                            child: Text(
-                                              '${amount.toStringAsFixed(0)} FCFA',
-                                              style: const TextStyle(
-                                                color: Colors.white,
-                                                fontWeight: FontWeight.bold,
-                                                fontSize: 14,
-                                              ),
-                                            ),
+                                            child: Text('${amount.toStringAsFixed(0)} FCFA', style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 14)),
                                           ),
                                         ],
                                       ),
                                       const SizedBox(height: 12),
                                       Row(
                                         children: [
-                                          const Icon(
-                                            Icons.calendar_today,
-                                            size: 14,
-                                            color: Color(0xFFA88B6F),
-                                          ),
+                                          const Icon(Icons.calendar_today, size: 14, color: Color(0xFFA88B6F)),
                                           const SizedBox(width: 6),
-                                          Text(
-                                            formattedDate,
-                                            style: const TextStyle(
-                                              fontSize: 12,
-                                              color: Color(0xFFA88B6F),
-                                            ),
-                                          ),
+                                          Text(formattedDate, style: const TextStyle(fontSize: 12, color: Color(0xFFA88B6F))),
                                           const SizedBox(width: 16),
-                                          const Icon(
-                                            Icons.access_time,
-                                            size: 14,
-                                            color: Color(0xFFA88B6F),
-                                          ),
+                                          const Icon(Icons.access_time, size: 14, color: Color(0xFFA88B6F)),
                                           const SizedBox(width: 6),
-                                          Text(
-                                            formattedTime,
-                                            style: const TextStyle(
-                                              fontSize: 12,
-                                              color: Color(0xFFA88B6F),
-                                            ),
-                                          ),
+                                          Text(formattedTime, style: const TextStyle(fontSize: 12, color: Color(0xFFA88B6F))),
                                         ],
                                       ),
                                     ],
@@ -358,6 +366,7 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
+  // --------------------- MODALES DE DON (toutes inchangées sauf ajout de _cacheData après mise à jour) ---------------------
   void _showStructureDonationModal() {
     final TextEditingController orgNameController = TextEditingController();
     final TextEditingController amountController = TextEditingController();
@@ -478,6 +487,7 @@ class _HomeScreenState extends State<HomeScreen> {
                             if (success) {
                               await Future.delayed(Duration(seconds: 2));
                               await _fetchPaymentHistory();
+                              await _cacheData();   // Mise à jour du cache
                               ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Paiement réussi ! Redirection...')));
                             } else {
                               ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Erreur lors de l’initiation du paiement')));
@@ -624,6 +634,7 @@ class _HomeScreenState extends State<HomeScreen> {
                             if (success) {
                               await Future.delayed(Duration(seconds: 2));
                               await _fetchPaymentHistory();
+                              await _cacheData();
                               ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Paiement réussi ! Redirection...')));
                             } else {
                               ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Erreur initiation paiement')));
@@ -645,6 +656,7 @@ class _HomeScreenState extends State<HomeScreen> {
                             _isModalOpen = false;
                             if (success) {
                               await _fetchCommitment();
+                              await _cacheData();
                               ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Fonctionnement de l\'AMI enregistré')));
                             } else {
                               ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Erreur lors de l\'enregistrement')));
@@ -737,6 +749,7 @@ class _HomeScreenState extends State<HomeScreen> {
                             if (success) {
                               await Future.delayed(Duration(seconds: 2));
                               await _fetchPaymentHistory();
+                              await _cacheData();
                               ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Paiement réussi ! Redirection...')));
                             } else {
                               ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Erreur paiement')));
@@ -914,6 +927,7 @@ class _HomeScreenState extends State<HomeScreen> {
         if (success) {
           await Future.delayed(Duration(seconds: 2));
           await _fetchPaymentHistory();
+          await _cacheData();
           ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Paiement réussi ! Redirection...')));
         } else {
           ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Erreur initiation paiement')));
@@ -948,6 +962,7 @@ class _HomeScreenState extends State<HomeScreen> {
         Navigator.pop(ctx);
         if (response.statusCode == 201) {
           await _fetchServiceCommitments();
+          await _cacheData();
           ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Engagement missionnaire enregistré')));
         } else {
           ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Erreur lors de l\'enregistrement')));
@@ -983,6 +998,7 @@ class _HomeScreenState extends State<HomeScreen> {
     );
     if (response.statusCode == 200) {
       await _fetchCommitment();
+      await _cacheData();
       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Engagement supprimé')));
     } else {
       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Erreur suppression')));
@@ -1009,7 +1025,6 @@ class _HomeScreenState extends State<HomeScreen> {
     final TextEditingController reasonController = TextEditingController(text: isMissionnaire ? '' : (commitment['reason'] ?? ''));
     final itemName = commitment['item_name'];
 
-    // Remplacer AlertDialog par showModalBottomSheet
     await showModalBottomSheet(
       context: context,
       isScrollControlled: true,
@@ -1101,6 +1116,7 @@ class _HomeScreenState extends State<HomeScreen> {
                             Navigator.pop(ctx);
                             if (response.statusCode == 200) {
                               await _fetchServiceCommitments();
+                              await _cacheData();
                               ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Engagement modifié')));
                             } else {
                               ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Erreur modification')));
@@ -1151,6 +1167,7 @@ class _HomeScreenState extends State<HomeScreen> {
     );
     if (response.statusCode == 200) {
       await _fetchServiceCommitments();
+      await _cacheData();
       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Engagement supprimé')));
     } else {
       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Erreur suppression')));
@@ -1249,6 +1266,7 @@ class _HomeScreenState extends State<HomeScreen> {
                                   if (success) {
                                     await Future.delayed(Duration(seconds: 2));
                                     await _fetchPaymentHistory();
+                                    await _cacheData();
                                     ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Paiement réussi ! Redirection...')));
                                   } else {
                                     ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Erreur lors de l’initiation du paiement')));
@@ -1644,6 +1662,7 @@ class _HomeScreenState extends State<HomeScreen> {
                                         if (success) {
                                           await Future.delayed(Duration(seconds: 2));
                                           await _fetchPaymentHistory();
+                                          await _cacheData();
                                           ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Paiement réussi ! Redirection...')));
                                         } else {
                                           ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Erreur paiement')));
