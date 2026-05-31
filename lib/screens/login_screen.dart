@@ -27,15 +27,16 @@ class _LoginScreenState extends State<LoginScreen> {
   String _tempToken = '';
   String _tempPhone = '';
 
-  final FocusNode _ageFocusNode = FocusNode();
-
-  // Pays sélectionné (Côte d'Ivoire par défaut)
+  // Pays sélectionné (défaut : Côte d’Ivoire)
   Country _selectedCountry = Country(
     phoneCode: '225',
     countryCode: 'CI',
     name: 'Côte d’Ivoire',
     flag: '🇨🇮',
+    // Les autres champs (dialCode, etc.) sont ignorés
   );
+
+  final FocusNode _ageFocusNode = FocusNode();
 
   Future<void> _requestOtp() async {
     String rawPhone = _phoneController.text.trim();
@@ -91,6 +92,7 @@ class _LoginScreenState extends State<LoginScreen> {
         final needsName = data['needs_name'] ?? false;
         if (needsName) {
           setState(() { _step = 'name'; _tempToken = token; });
+          // Focus sur le champ Âge (clavier numérique)
           WidgetsBinding.instance.addPostFrameCallback((_) {
             FocusScope.of(context).requestFocus(_ageFocusNode);
           });
@@ -172,7 +174,7 @@ class _LoginScreenState extends State<LoginScreen> {
     showCountryPicker(
       context: context,
       showPhoneCode: true,
-      favorite: ['CI'], // Côte d'Ivoire en tête
+      favorite: ['CI'], // Côte d’Ivoire en tête de liste
       countryListTheme: CountryListThemeData(
         flagSize: 25,
         textStyle: const TextStyle(fontSize: 16, color: Colors.black87),
@@ -222,6 +224,7 @@ class _LoginScreenState extends State<LoginScreen> {
                 const SizedBox(height: 12),
                 Text('Entrez votre numéro de téléphone', style: TextStyle(fontSize: 14, color: Colors.grey[600])),
                 const SizedBox(height: 20),
+                // Sélecteur de pays avec drapeau et indicatif
                 GestureDetector(
                   onTap: _showCountryPicker,
                   child: Container(
@@ -321,20 +324,11 @@ class _LoginScreenState extends State<LoginScreen> {
                   textInputAction: TextInputAction.next,
                 ),
                 const SizedBox(height: 16),
-                TextField(
-                  controller: _cityController,
-                  decoration: InputDecoration(labelText: 'Ville de résidence', prefixIcon: Icon(Icons.location_city, color: const Color(0xFFD4A017)), border: OutlineInputBorder(borderRadius: BorderRadius.circular(12))),
-                ),
+                TextField(controller: _cityController, decoration: InputDecoration(labelText: 'Ville de résidence', prefixIcon: Icon(Icons.location_city, color: const Color(0xFFD4A017)), border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)))),
                 const SizedBox(height: 16),
-                TextField(
-                  controller: _professionController,
-                  decoration: InputDecoration(labelText: 'Profession', prefixIcon: Icon(Icons.work, color: const Color(0xFFD4A017)), border: OutlineInputBorder(borderRadius: BorderRadius.circular(12))),
-                ),
+                TextField(controller: _professionController, decoration: InputDecoration(labelText: 'Profession', prefixIcon: Icon(Icons.work, color: const Color(0xFFD4A017)), border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)))),
                 const SizedBox(height: 16),
-                TextField(
-                  controller: _churchController,
-                  decoration: InputDecoration(labelText: 'Église / organisation', prefixIcon: Icon(Icons.church, color: const Color(0xFFD4A017)), border: OutlineInputBorder(borderRadius: BorderRadius.circular(12))),
-                ),
+                TextField(controller: _churchController, decoration: InputDecoration(labelText: 'Église / organisation', prefixIcon: Icon(Icons.church, color: const Color(0xFFD4A017)), border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)))),
                 const SizedBox(height: 24),
                 ElevatedButton(
                   onPressed: _isLoading ? null : _completeProfile,
