@@ -51,8 +51,8 @@ class _LoginScreenState extends State<LoginScreen> {
       return;
     }
     rawPhone = rawPhone.replaceAll(RegExp(r'\s+'), '');
-    // ✅ CORRECTION : utiliser dialCode au lieu de phoneCode
-    final fullPhone = _selectedCountry!.dialCode + rawPhone;
+    // 🔧 CORRECTION : ajouter le '+' devant l'indicatif
+    final fullPhone = '+${_selectedCountry!.dialCode}${rawPhone}';
 
     setState(() { _isLoading = true; _status = ''; });
     try {
