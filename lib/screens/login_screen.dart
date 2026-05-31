@@ -27,13 +27,11 @@ class _LoginScreenState extends State<LoginScreen> {
   String _tempToken = '';
   String _tempPhone = '';
 
-  // Pays sélectionné (défaut : Côte d’Ivoire)
+  // ✅ Correction : plus de paramètre 'flag'
   Country _selectedCountry = Country(
     phoneCode: '225',
     countryCode: 'CI',
     name: 'Côte d’Ivoire',
-    flag: '🇨🇮',
-    // Les autres champs (dialCode, etc.) sont ignorés
   );
 
   final FocusNode _ageFocusNode = FocusNode();
@@ -92,7 +90,6 @@ class _LoginScreenState extends State<LoginScreen> {
         final needsName = data['needs_name'] ?? false;
         if (needsName) {
           setState(() { _step = 'name'; _tempToken = token; });
-          // Focus sur le champ Âge (clavier numérique)
           WidgetsBinding.instance.addPostFrameCallback((_) {
             FocusScope.of(context).requestFocus(_ageFocusNode);
           });
@@ -174,7 +171,7 @@ class _LoginScreenState extends State<LoginScreen> {
     showCountryPicker(
       context: context,
       showPhoneCode: true,
-      favorite: ['CI'], // Côte d’Ivoire en tête de liste
+      favorite: ['CI'],
       countryListTheme: CountryListThemeData(
         flagSize: 25,
         textStyle: const TextStyle(fontSize: 16, color: Colors.black87),
@@ -224,7 +221,6 @@ class _LoginScreenState extends State<LoginScreen> {
                 const SizedBox(height: 12),
                 Text('Entrez votre numéro de téléphone', style: TextStyle(fontSize: 14, color: Colors.grey[600])),
                 const SizedBox(height: 20),
-                // Sélecteur de pays avec drapeau et indicatif
                 GestureDetector(
                   onTap: _showCountryPicker,
                   child: Container(
@@ -235,7 +231,8 @@ class _LoginScreenState extends State<LoginScreen> {
                     ),
                     child: Row(
                       children: [
-                        Text(_selectedCountry.flag, style: const TextStyle(fontSize: 24)),
+                        // ✅ Utilisation de flagEmoji
+                        Text(_selectedCountry.flagEmoji, style: const TextStyle(fontSize: 24)),
                         const SizedBox(width: 12),
                         Text('${_selectedCountry.name} (+${_selectedCountry.phoneCode})', style: const TextStyle(fontSize: 16)),
                         const Spacer(),
@@ -266,6 +263,7 @@ class _LoginScreenState extends State<LoginScreen> {
                   child: _isLoading ? const CircularProgressIndicator(color: Colors.white) : const Text('Continuer', style: TextStyle(fontSize: 16)),
                 ),
               ] else if (_step == 'otp') ...[
+                // ... (reste inchangé)
                 Text('Vérification', style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: Color(0xFF2C1A0C))),
                 const SizedBox(height: 12),
                 Text('Un code a été envoyé à $_tempPhone', style: TextStyle(fontSize: 14, color: Colors.grey[600])),
