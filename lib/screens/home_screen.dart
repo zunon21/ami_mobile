@@ -88,8 +88,8 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   void initState() {
     super.initState();
-    _loadCachedData();   // Charge immédiatement le cache (affichage instantané)
-    _loadData();         // En arrière-plan, récupère les données à jour
+    _loadCachedData();
+    _loadData();
   }
 
   // --------------------- GESTION DU CACHE ---------------------
@@ -139,7 +139,7 @@ class _HomeScreenState extends State<HomeScreen> {
       if (data != null) {
         setState(() {
           _serviceCommitments = jsonDecode(data);
-          hasCache = true);
+          hasCache = true;
         });
       }
     }
@@ -242,7 +242,7 @@ class _HomeScreenState extends State<HomeScreen> {
     }
   }
 
-  // --------------------- REÇU DE PAIEMENT (design élégant) ---------------------
+  // --------------------- REÇU DE PAIEMENT ---------------------
   void _showPaymentReceipt() {
     showModalBottomSheet(
       context: context,
@@ -366,7 +366,7 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  // --------------------- MODALES CORRIGÉES (ajout padding.bottom + SingleChildScrollView) ---------------------
+  // ---------- MODALES CORRIGÉES (avec padding.bottom) ----------
   void _showStructureDonationModal() {
     final TextEditingController orgNameController = TextEditingController();
     final TextEditingController amountController = TextEditingController();
@@ -516,8 +516,6 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   void _showCommitmentModal({bool isEditing = false}) {
-    // Cette fonction utilise AlertDialog (pas de problème de barre système)
-    // (contenu inchangé, identique à votre version)
     if (_isModalOpen) return;
     _isModalOpen = true;
 
