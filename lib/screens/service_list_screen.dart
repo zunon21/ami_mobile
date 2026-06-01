@@ -236,7 +236,8 @@ class _ServiceListScreenState extends State<ServiceListScreen> {
             }
             return Padding(
               padding: EdgeInsets.only(
-                bottom: MediaQuery.of(ctx).viewInsets.bottom,
+                // ✅ Correction : ajout de padding.bottom pour la barre système
+                bottom: MediaQuery.of(ctx).viewInsets.bottom + MediaQuery.of(ctx).padding.bottom,
                 left: 16,
                 right: 16,
                 top: 16,
